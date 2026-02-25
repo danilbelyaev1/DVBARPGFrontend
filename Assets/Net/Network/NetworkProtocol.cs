@@ -21,12 +21,12 @@ namespace DVBARPG.Net.Network
     {
         public string Type { get; set; } = "";
         public int Seq { get; set; }
-        public float X { get; set; }
-        public float Y { get; set; }
+        public float? X { get; set; }
+        public float? Y { get; set; }
         public string? SkillId { get; set; }
         public string? Token { get; set; }
-        public System.Guid CharacterId { get; set; }
-        public System.Guid SeasonId { get; set; }
+        public System.Guid? CharacterId { get; set; }
+        public System.Guid? SeasonId { get; set; }
         public string? MapId { get; set; }
     }
 

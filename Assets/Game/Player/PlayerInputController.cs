@@ -51,6 +51,11 @@ namespace DVBARPG.Game.Player
                 return;
             }
 
+            if (dir.sqrMagnitude > 1f)
+            {
+                dir.Normalize();
+            }
+
             _session.Send(new CmdMove
             {
                 EntityId = _entityId,

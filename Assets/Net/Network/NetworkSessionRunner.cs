@@ -23,6 +23,8 @@ namespace DVBARPG.Net.Network
         private int _seq;
         private string _serverUrl = "ws://localhost:8080/ws";
         private float _lastMoveLog;
+        private bool _connectOk;
+        private bool _instanceStarted;
 
         public void Connect(AuthSession session, string mapId, string serverUrl)
         {
@@ -62,11 +64,12 @@ namespace DVBARPG.Net.Network
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"NetworkSessionRunner: {e.GetType().Name} {e.Message}");
+                    Debug.LogWarning($"NetworkSessionRunner: {e.GetType().Name} {e.Message}\n{e.StackTrace}");
                 }
                 finally
                 {
                     IsConnected = false;
+                    Debug.Log("NetworkSessionRunner: disconnected");
                 }
             });
         }
@@ -78,6 +81,7 @@ namespace DVBARPG.Net.Network
         public void Send(IClientCommand command)
         {
             if (!IsConnected || _socket == null || _socket.State != WebSocketState.Open) return;
+            if (!_connectOk || !_instanceStarted) return;
 
             if (command is CmdMove move)
             {
@@ -124,7 +128,11 @@ namespace DVBARPG.Net.Network
                 do
                 {
                     result = await _socket.ReceiveAsync(buffer, ct);
-                    if (result.MessageType == WebSocketMessageType.Close) return;
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        Debug.LogWarning("NetworkSessionRunner: socket closed by server.");
+                        return;
+                    }
                     ms.Write(buffer, 0, result.Count);
                 } while (!result.EndOfMessage);
 
@@ -147,10 +155,20 @@ namespace DVBARPG.Net.Network
                         var snap = JsonConvert.DeserializeObject<SnapshotEnvelope>(json, NetProtocol.JsonSettings);
                         if (snap != null) _snapshots.Enqueue(snap);
                         break;
-                    case "hello":
                     case "connect_ok":
+                        _connectOk = true;
+                        break;
                     case "instance_start":
+                        _instanceStarted = true;
+                        break;
                     case "error":
+                        var err = JsonConvert.DeserializeObject<ErrorEnvelope>(json, NetProtocol.JsonSettings);
+                        if (err != null)
+                        {
+                            Debug.LogWarning($"NetworkSessionRunner: server error {err.Code} {err.Message}");
+                        }
+                        break;
+                    case "hello":
                         break;
                 }
             }
@@ -161,12 +179,19 @@ namespace DVBARPG.Net.Network
 
         private int NextSeq() => Interlocked.Increment(ref _seq);
 
-        private Task SendEnvelopeAsync(CommandEnvelope cmd)
+        private async Task SendEnvelopeAsync(CommandEnvelope cmd)
         {
             var json = JsonConvert.SerializeObject(cmd, NetProtocol.JsonSettings);
             Debug.Log($"WS SEND: {json}");
             var bytes = Encoding.UTF8.GetBytes(json);
-            return _socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+            try
+            {
+                await _socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"NetworkSessionRunner: send failed {e.GetType().Name} {e.Message}");
+            }
         }
 
         private void OnDestroy()
