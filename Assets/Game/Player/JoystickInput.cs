@@ -5,7 +5,10 @@ namespace DVBARPG.Game.Player
 {
     public sealed class JoystickInput : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
     {
+        [Header("Джойстик")]
+        [Tooltip("Ручка джойстика (UI элемент).")]
         [SerializeField] private RectTransform handle;
+        [Tooltip("Радиус хода ручки в пикселях.")]
         [SerializeField] private float radius = 80f;
 
         public Vector2 Direction { get; private set; }
@@ -34,6 +37,7 @@ namespace DVBARPG.Game.Player
                 return;
             }
 
+            // Ограничиваем ход ручки внутри круга.
             var clamped = Vector2.ClampMagnitude(local, radius);
             Direction = clamped / radius;
             handle.anchoredPosition = clamped;

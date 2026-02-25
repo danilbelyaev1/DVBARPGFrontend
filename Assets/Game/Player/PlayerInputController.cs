@@ -17,9 +17,14 @@ namespace DVBARPG.Game.Player
 
     public sealed class PlayerInputController : MonoBehaviour
     {
+        [Header("Управление")]
+        [Tooltip("Режим ввода: клавиатура, мышь или тач-джойстик.")]
         [SerializeField] private InputMode inputMode = InputMode.Wasd;
+        [Tooltip("Скорость движения (используется для отправки в сеть).")]
         [SerializeField] private float moveSpeed = 4.5f;
+        [Tooltip("Камера для режима MouseFollow.")]
         [SerializeField] private UnityEngine.Camera viewCamera;
+        [Tooltip("Ссылка на компонент тач-джойстика.")]
         [SerializeField] private JoystickInput joystick;
 
         private string _entityId;
@@ -38,13 +43,16 @@ namespace DVBARPG.Game.Player
 
         private void Update()
         {
+            // Если нет сессии — не отправляем ввод.
             if (_session == null) return;
+            if (!CanMove()) return;
 
             var dir = ReadMoveDirection();
             if (dir.sqrMagnitude <= 0.0001f)
             {
                 if (_wasMoving)
                 {
+                    // Сообщаем серверу, что ввод остановлен.
                     _session.Send(new DVBARPG.Net.Commands.CmdStop());
                     _wasMoving = false;
                 }
@@ -53,9 +61,11 @@ namespace DVBARPG.Game.Player
 
             if (dir.sqrMagnitude > 1f)
             {
+                // Нормализуем ввод, чтобы сервер не отвергал диагональ.
                 dir.Normalize();
             }
 
+            // Отправляем намерение движения на сервер.
             _session.Send(new CmdMove
             {
                 EntityId = _entityId,
@@ -64,6 +74,25 @@ namespace DVBARPG.Game.Player
                 DeltaTime = Time.deltaTime
             });
             _wasMoving = true;
+        }
+
+        private bool CanMove()
+        {
+            if (_session is DVBARPG.Net.Network.NetworkSessionRunner)
+            {
+                if (NetworkPlayerReplicator.CurrentHp == 0)
+                {
+                    if (_wasMoving)
+                    {
+                        // Если игрок мёртв — прекращаем движение.
+                        _session.Send(new DVBARPG.Net.Commands.CmdStop());
+                        _wasMoving = false;
+                    }
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private Vector3 ReadMoveDirection()

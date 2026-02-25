@@ -19,6 +19,7 @@ namespace DVBARPG.Net.Network
 
     public sealed class CommandEnvelope
     {
+        // Унифицированная команда клиента → сервер.
         public string Type { get; set; } = "";
         public int Seq { get; set; }
         public float? X { get; set; }

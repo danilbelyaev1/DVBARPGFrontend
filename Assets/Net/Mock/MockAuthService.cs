@@ -7,6 +7,7 @@ namespace DVBARPG.Net.Mock
     {
         public AuthSession Login()
         {
+            // Генерируем локальную сессию для dev-режима.
             return new AuthSession
             {
                 PlayerId = Guid.NewGuid().ToString("N"),

@@ -8,6 +8,8 @@ namespace DVBARPG.UI.Login
 {
     public sealed class LoginScreen : MonoBehaviour
     {
+        [Header("UI")]
+        [Tooltip("Кнопка 'Play' для входа.")]
         [SerializeField] private Button playButton;
 
         private void Awake()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
@@ -15,16 +16,24 @@ namespace DVBARPG.Net.Network
     {
         public bool IsConnected { get; private set; }
         public event Action<SnapshotEnvelope> Snapshot;
+        public event Action BufferUpdated;
+        public event Action<int, Vector2, float> MoveSent;
 
         private ClientWebSocket _socket;
         private CancellationTokenSource _cts;
         private Task _recvTask;
+        // Сырые снапшоты приходят из сети, обрабатываем их в Update на главном потоке.
         private readonly ConcurrentQueue<SnapshotEnvelope> _snapshots = new();
         private int _seq;
         private string _serverUrl = "ws://localhost:8080/ws";
         private float _lastMoveLog;
         private bool _connectOk;
         private bool _instanceStarted;
+        // Общий буфер снапшотов для интерполяции/экстраполяции.
+        private readonly List<SnapshotEnvelope> _buffer = new();
+        private float _serverToLocalOffsetMs;
+        private bool _hasTimeOffset;
+        private readonly object _bufferLock = new();
 
         public void Connect(AuthSession session, string mapId, string serverUrl)
         {
@@ -74,10 +83,6 @@ namespace DVBARPG.Net.Network
             });
         }
 
-        public void RegisterLocalMover(DVBARPG.Core.Simulation.ILocalMover mover)
-        {
-        }
-
         public void Send(IClientCommand command)
         {
             if (!IsConnected || _socket == null || _socket.State != WebSocketState.Open) return;
@@ -90,10 +95,12 @@ namespace DVBARPG.Net.Network
                     Debug.Log($"NetworkSessionRunner: send move ({move.Direction.x:0.00},{move.Direction.z:0.00})");
                     _lastMoveLog = Time.unscaledTime;
                 }
+                var seq = NextSeq();
+                MoveSent?.Invoke(seq, new Vector2(move.Direction.x, move.Direction.z), move.DeltaTime);
                 _ = SendEnvelopeAsync(new CommandEnvelope
                 {
                     Type = "move",
-                    Seq = NextSeq(),
+                    Seq = seq,
                     X = move.Direction.x,
                     Y = move.Direction.z
                 });
@@ -102,10 +109,11 @@ namespace DVBARPG.Net.Network
 
             if (command is CmdStop)
             {
+                var seq = NextSeq();
                 _ = SendEnvelopeAsync(new CommandEnvelope
                 {
                     Type = "stop",
-                    Seq = NextSeq()
+                    Seq = seq
                 });
             }
         }
@@ -115,6 +123,67 @@ namespace DVBARPG.Net.Network
             while (_snapshots.TryDequeue(out var snap))
             {
                 Snapshot?.Invoke(snap);
+
+                lock (_bufferLock)
+                {
+                    // Кладём снапшот в буфер для интерполяции.
+                    _buffer.Add(snap);
+                    if (_buffer.Count > 30) _buffer.RemoveAt(0);
+                    if (!_hasTimeOffset)
+                    {
+                        // Вычисляем смещение времени: serverTime -> localTime.
+                        _serverToLocalOffsetMs = Time.unscaledTime * 1000f - snap.ServerTimeMs;
+                        _hasTimeOffset = true;
+                    }
+                }
+
+                BufferUpdated?.Invoke();
+            }
+        }
+
+        public bool TryGetSnapshotsForRender(float interpolationDelayMs, out SnapshotEnvelope from, out SnapshotEnvelope to, out float renderTimeMs)
+        {
+            from = null;
+            to = null;
+            renderTimeMs = 0f;
+
+            lock (_bufferLock)
+            {
+                if (_buffer.Count == 0 || !_hasTimeOffset) return false;
+
+                var localNowMs = Time.unscaledTime * 1000f;
+                var serverNowMs = localNowMs - _serverToLocalOffsetMs;
+                // Отрисовываем чуть в прошлом, чтобы стабильно интерполировать.
+                renderTimeMs = serverNowMs - interpolationDelayMs;
+
+                for (int i = 0; i < _buffer.Count; i++)
+                {
+                    var s = _buffer[i];
+                    if (s.ServerTimeMs <= renderTimeMs) from = s;
+                    if (s.ServerTimeMs >= renderTimeMs)
+                    {
+                        to = s;
+                        break;
+                    }
+                }
+
+                if (from == null) from = _buffer[0];
+                if (to == null) to = _buffer[_buffer.Count - 1];
+                return true;
+            }
+        }
+
+        public bool TryGetLastTwoSnapshots(out SnapshotEnvelope prev, out SnapshotEnvelope last)
+        {
+            prev = null;
+            last = null;
+
+            lock (_bufferLock)
+            {
+                if (_buffer.Count < 2) return false;
+                last = _buffer[_buffer.Count - 1];
+                prev = _buffer[_buffer.Count - 2];
+                return true;
             }
         }
 

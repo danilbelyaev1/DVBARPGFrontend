@@ -9,11 +9,13 @@ namespace DVBARPG.Net.Mock
 
         public void SetAuth(AuthSession session)
         {
+            // Сохраняем сессию в памяти (dev-режим).
             CurrentAuth = session;
         }
 
         public void SetSelectedClass(string classId)
         {
+            // Выбранный класс для запуска забега.
             SelectedClassId = classId;
         }
     }

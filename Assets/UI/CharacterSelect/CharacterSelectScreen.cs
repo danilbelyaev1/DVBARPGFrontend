@@ -9,12 +9,20 @@ namespace DVBARPG.UI.CharacterSelect
 {
     public sealed class CharacterSelectScreen : MonoBehaviour
     {
+        [Header("Кнопки")]
+        [Tooltip("Кнопка выбора класса Melee.")]
         [SerializeField] private Button meleeButton;
+        [Tooltip("Кнопка выбора класса Ranged.")]
         [SerializeField] private Button rangedButton;
+        [Tooltip("Кнопка выбора класса Mage.")]
         [SerializeField] private Button mageButton;
 
+        [Header("Данные классов")]
+        [Tooltip("ScriptableObject для класса Melee.")]
         [SerializeField] private ClassData meleeData;
+        [Tooltip("ScriptableObject для класса Ranged.")]
         [SerializeField] private ClassData rangedData;
+        [Tooltip("ScriptableObject для класса Mage.")]
         [SerializeField] private ClassData mageData;
 
         private void Awake()
