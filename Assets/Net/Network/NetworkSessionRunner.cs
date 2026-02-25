@@ -129,6 +129,7 @@ namespace DVBARPG.Net.Network
                 } while (!result.EndOfMessage);
 
                 var json = Encoding.UTF8.GetString(ms.ToArray());
+                Debug.Log($"WS RECV: {json}");
                 TryHandleMessage(json);
             }
         }
@@ -163,6 +164,7 @@ namespace DVBARPG.Net.Network
         private Task SendEnvelopeAsync(CommandEnvelope cmd)
         {
             var json = JsonConvert.SerializeObject(cmd, NetProtocol.JsonSettings);
+            Debug.Log($"WS SEND: {json}");
             var bytes = Encoding.UTF8.GetBytes(json);
             return _socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
         }
