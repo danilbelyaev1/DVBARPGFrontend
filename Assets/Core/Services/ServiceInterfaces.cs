@@ -20,6 +20,8 @@ namespace DVBARPG.Core.Services
 
     public interface ISessionService
     {
+        bool IsConnected { get; }
+        void Connect(AuthSession session, string mapId, string serverUrl);
         void Send(DVBARPG.Net.Commands.IClientCommand command);
         void RegisterLocalMover(DVBARPG.Core.Simulation.ILocalMover mover);
     }

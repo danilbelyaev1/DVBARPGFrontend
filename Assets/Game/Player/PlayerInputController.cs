@@ -25,6 +25,7 @@ namespace DVBARPG.Game.Player
         private string _entityId;
         private ISessionService _session;
         private Transform _self;
+        private bool _wasMoving;
 
         private void Awake()
         {
@@ -40,7 +41,15 @@ namespace DVBARPG.Game.Player
             if (_session == null) return;
 
             var dir = ReadMoveDirection();
-            if (dir.sqrMagnitude <= 0.0001f) return;
+            if (dir.sqrMagnitude <= 0.0001f)
+            {
+                if (_wasMoving)
+                {
+                    _session.Send(new DVBARPG.Net.Commands.CmdStop());
+                    _wasMoving = false;
+                }
+                return;
+            }
 
             _session.Send(new CmdMove
             {
@@ -49,6 +58,7 @@ namespace DVBARPG.Game.Player
                 Speed = moveSpeed,
                 DeltaTime = Time.deltaTime
             });
+            _wasMoving = true;
         }
 
         private Vector3 ReadMoveDirection()

@@ -10,7 +10,9 @@ namespace DVBARPG.Net.Mock
             return new AuthSession
             {
                 PlayerId = Guid.NewGuid().ToString("N"),
-                Token = Guid.NewGuid().ToString("N")
+                Token = Guid.NewGuid().ToString("N"),
+                CharacterId = Guid.NewGuid(),
+                SeasonId = Guid.NewGuid()
             };
         }
     }

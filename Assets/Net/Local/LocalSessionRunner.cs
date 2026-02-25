@@ -10,6 +10,12 @@ namespace DVBARPG.Net.Local
     {
         private readonly Dictionary<string, ILocalMover> _movers = new();
 
+        public bool IsConnected => true;
+
+        public void Connect(AuthSession session, string mapId, string serverUrl)
+        {
+        }
+
         public void RegisterLocalMover(ILocalMover mover)
         {
             if (mover == null || string.IsNullOrEmpty(mover.EntityId)) return;
