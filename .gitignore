@@ -60,3 +60,5 @@ Assets/AddressableAssetsData/*/*.bin*
 
 # Rider plugin auto-generated
 .idea/.idea.*
+
+RuntimeServerARPG

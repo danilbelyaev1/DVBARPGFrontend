@@ -7,5 +7,7 @@ namespace DVBARPG.Core.Services
     {
         public string PlayerId;
         public string Token;
+        public Guid CharacterId;
+        public Guid SeasonId;
     }
 }

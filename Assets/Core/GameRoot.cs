@@ -49,7 +49,18 @@ namespace DVBARPG.Core
         {
             Services.Register<IAuthService>(new MockAuthService());
             Services.Register<IProfileService>(new MockProfileService());
-            Services.Register<ISessionService>(new LocalSessionRunner());
+            var useNetworkSession = true;
+            if (useNetworkSession)
+            {
+                var go = new GameObject("[NetworkSession]");
+                DontDestroyOnLoad(go);
+                var net = go.AddComponent<DVBARPG.Net.Network.NetworkSessionRunner>();
+                Services.Register<ISessionService>(net);
+            }
+            else
+            {
+                Services.Register<ISessionService>(new LocalSessionRunner());
+            }
             Services.Register<ICombatService>(new LocalCombatService());
             Services.Register<IInventoryService>(new LocalInventoryService());
             Services.Register<IMarketService>(new LocalMarketService());
