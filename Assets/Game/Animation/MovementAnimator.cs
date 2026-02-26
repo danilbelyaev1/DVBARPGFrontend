@@ -10,15 +10,16 @@ namespace DVBARPG.Game.Animation
         [SerializeField] private Animator animator;
 
         [Header("Параметры")]
-        [Tooltip("Скорость сглаживания параметра Speed.")]
-        [SerializeField] private float speedSmooth = 10f;
-        [Tooltip("Порог для IsMoving.")]
-        [SerializeField] private float movingThreshold = 0.05f;
+        [Tooltip("Порог для IsMoving (0 = сразу выключать).")]
+        [SerializeField] private float movingThreshold = 0.0f;
+        [Header("Поворот")]
+        [Tooltip("Поворачивать объект по направлению движения.")]
+        [SerializeField] private bool rotateToMovement = false;
+        [Tooltip("Скорость сглаживания поворота.")]
+        [SerializeField] private float rotationLerp = 10f;
 
-        private float _speed;
         private Vector3 _lastPos;
 
-        private static readonly int SpeedHash = Animator.StringToHash("Speed");
         private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
 
         private void Awake()
@@ -34,12 +35,18 @@ namespace DVBARPG.Game.Animation
             _lastPos = pos;
 
             var speedNow = delta.magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
-            _speed = Mathf.Lerp(_speed, speedNow, speedSmooth * Time.deltaTime);
+            var isMoving = speedNow > movingThreshold;
 
-            var isMoving = _speed > movingThreshold;
-
-            animator.SetFloat(SpeedHash, _speed);
+            // Только флаг движения, без параметра скорости.
             animator.SetBool(IsMovingHash, isMoving);
+
+            if (rotateToMovement && delta.sqrMagnitude > 0.0001f)
+            {
+                // Поворачиваем объект в сторону фактического движения.
+                var dir = new Vector3(delta.x, 0f, delta.z).normalized;
+                var targetRot = Quaternion.LookRotation(dir, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationLerp * Time.deltaTime);
+            }
         }
     }
 }

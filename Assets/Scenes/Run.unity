@@ -3864,7 +3864,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c12e31305b3740308f06575353c7b9c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.NetworkRunConnector
-  serverUrl: ws://localhost:8080/ws
+  serverUrl: udp://127.0.0.1:8081
   mapId: default
 --- !u!4 &1043297763
 Transform:
@@ -4266,8 +4266,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1320802741}
   - {fileID: 1043297763}
+  - {fileID: 1320802741}
   - {fileID: 519211436}
   - {fileID: 93318636}
   - {fileID: 547945240}
