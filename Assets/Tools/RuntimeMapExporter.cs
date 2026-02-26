@@ -9,11 +9,14 @@ namespace Tools
     public sealed class RuntimeMapExporter : EditorWindow
     {
         private string _mapId = "";
-        private float _radius = 12f;
         private float _playerRadius = 0.35f;
         private string _outputFile = "default.json";
         private bool _useObstacleLayer = true;
         private string _obstacleLayerName = "Obstacle";
+        private bool _usePlayerSpawnLayer = true;
+        private string _playerSpawnLayerName = "PlayerSpawn";
+        private bool _useEnemySpawnLayer = true;
+        private string _enemySpawnLayerName = "EnemySpawn";
 
         [MenuItem("Tools/Runtime Server/Export Map JSON")]
         public static void Open()
@@ -24,13 +27,22 @@ namespace Tools
         private void OnGUI()
         {
             _mapId = EditorGUILayout.TextField("Map Id", string.IsNullOrWhiteSpace(_mapId) ? GetDefaultMapId() : _mapId);
-            _radius = EditorGUILayout.FloatField("Radius", _radius);
             _playerRadius = EditorGUILayout.FloatField("Player Radius", _playerRadius);
             _outputFile = EditorGUILayout.TextField("Output File", _outputFile);
             _useObstacleLayer = EditorGUILayout.Toggle("Use Obstacle Layer", _useObstacleLayer);
             if (_useObstacleLayer)
             {
                 _obstacleLayerName = EditorGUILayout.TextField("Obstacle Layer", _obstacleLayerName);
+            }
+            _usePlayerSpawnLayer = EditorGUILayout.Toggle("Use Player Spawn Layer", _usePlayerSpawnLayer);
+            if (_usePlayerSpawnLayer)
+            {
+                _playerSpawnLayerName = EditorGUILayout.TextField("Player Spawn Layer", _playerSpawnLayerName);
+            }
+            _useEnemySpawnLayer = EditorGUILayout.Toggle("Use Enemy Spawn Layer", _useEnemySpawnLayer);
+            if (_useEnemySpawnLayer)
+            {
+                _enemySpawnLayerName = EditorGUILayout.TextField("Enemy Spawn Layer", _enemySpawnLayerName);
             }
 
             if (GUILayout.Button("Export"))
@@ -49,11 +61,14 @@ namespace Tools
         {
             var mapId = string.IsNullOrWhiteSpace(_mapId) ? GetDefaultMapId() : _mapId;
             var obstacles = CollectObstacles();
+            var playerSpawn = CollectPlayerSpawn();
+            var enemySpawns = CollectEnemySpawns();
             var map = new MapDef
             {
                 id = mapId,
-                radius = _radius,
                 playerRadius = _playerRadius,
+                playerSpawn = playerSpawn,
+                enemySpawns = enemySpawns,
                 obstacles = obstacles
             };
 
@@ -73,7 +88,7 @@ namespace Tools
 
             foreach (var t in allTransforms)
             {
-                if (_useObstacleLayer && LayerMask.NameToLayer(_obstacleLayerName) != t.gameObject.layer)
+                if (!IsLayerMatch(t.gameObject, _obstacleLayerName, _useObstacleLayer))
                 {
                     continue;
                 }
@@ -88,7 +103,8 @@ namespace Tools
                         x = center.x,
                         y = center.y,
                         w = Mathf.Abs(size.x),
-                        h = Mathf.Abs(size.y)
+                        h = Mathf.Abs(size.y),
+                        rot = box2d.transform.eulerAngles.z
                     });
                     continue;
                 }
@@ -103,7 +119,8 @@ namespace Tools
                         x = center.x,
                         y = center.z,
                         w = Mathf.Abs(size.x),
-                        h = Mathf.Abs(size.z)
+                        h = Mathf.Abs(size.z),
+                        rot = box3d.transform.eulerAngles.y
                     });
                 }
             }
@@ -111,13 +128,82 @@ namespace Tools
             return result;
         }
 
+        private MapPoint CollectPlayerSpawn()
+        {
+            var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+            var allTransforms = roots.SelectMany(r => r.GetComponentsInChildren<Transform>(true)).ToArray();
+
+            foreach (var t in allTransforms)
+            {
+                if (!IsLayerMatch(t.gameObject, _playerSpawnLayerName, _usePlayerSpawnLayer))
+                {
+                    continue;
+                }
+
+                var pos = GetSpawnPosition(t.position);
+                return new MapPoint { x = pos.x, y = pos.y };
+            }
+
+            return null;
+        }
+
+        private List<MapPoint> CollectEnemySpawns()
+        {
+            var result = new List<MapPoint>();
+            var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+            var allTransforms = roots.SelectMany(r => r.GetComponentsInChildren<Transform>(true)).ToArray();
+
+            foreach (var t in allTransforms)
+            {
+                if (!IsLayerMatch(t.gameObject, _enemySpawnLayerName, _useEnemySpawnLayer))
+                {
+                    continue;
+                }
+
+                var pos = GetSpawnPosition(t.position);
+                result.Add(new MapPoint { x = pos.x, y = pos.y });
+            }
+
+            return result;
+        }
+
+        private bool IsLayerMatch(GameObject go, string layerName, bool useFilter)
+        {
+            if (!useFilter)
+            {
+                return true;
+            }
+
+            var layer = LayerMask.NameToLayer(layerName);
+            if (layer < 0)
+            {
+                Debug.LogWarning($"Layer '{layerName}' not found. Ignoring filter.");
+                return true;
+            }
+
+            return go.layer == layer;
+        }
+
+        private Vector2 GetSpawnPosition(Vector3 worldPosition)
+        {
+            return new Vector2(worldPosition.x, worldPosition.z);
+        }
+
         [System.Serializable]
         private sealed class MapDef
         {
             public string id;
-            public float radius;
             public float playerRadius;
+            public MapPoint playerSpawn;
+            public List<MapPoint> enemySpawns;
             public List<MapObstacle> obstacles;
+        }
+
+        [System.Serializable]
+        private sealed class MapPoint
+        {
+            public float x;
+            public float y;
         }
 
         [System.Serializable]
@@ -127,6 +213,7 @@ namespace Tools
             public float y;
             public float w;
             public float h;
+            public float rot;
         }
     }
 }
