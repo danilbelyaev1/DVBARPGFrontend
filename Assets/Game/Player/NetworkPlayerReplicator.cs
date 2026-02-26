@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using UnityEngine;
+using DVBARPG.Game.World;
 namespace DVBARPG.Game.Player
 {
     public sealed class NetworkPlayerReplicator : MonoBehaviour
@@ -84,6 +85,7 @@ namespace DVBARPG.Game.Player
                     _predictedPos += new Vector3(dir.x, 0f, dir.y) * predictedMoveSpeed * p.Dt;
                 }
 
+                _predictedPos.y = SampleHeight(_predictedPos);
                 transform.position = _predictedPos;
             }
 
@@ -113,6 +115,7 @@ namespace DVBARPG.Game.Player
                 // Локально двигаем игрока сразу, не дожидаясь снапшота.
                 _predictedPos += new Vector3(norm.x, 0f, norm.y) * predictedMoveSpeed * dt;
                 _targetForward = new Vector3(norm.x, 0f, norm.y);
+                _predictedPos.y = SampleHeight(_predictedPos);
                 transform.position = _predictedPos;
             }
         }
@@ -139,7 +142,9 @@ namespace DVBARPG.Game.Player
                         }
 
                         // Интерполяция для удалённого игрока (без предсказания).
-                        transform.position = Vector3.Lerp(fromPos, toPos, t);
+                        var pos = Vector3.Lerp(fromPos, toPos, t);
+                        pos.y = SampleHeight(pos);
+                        transform.position = pos;
                     }
                     else if (_net.TryGetLastTwoSnapshots(out var prevSnap, out var lastSnap))
                     {
@@ -150,7 +155,9 @@ namespace DVBARPG.Game.Player
                         {
                             var vel = (lastPos - prevPos) / (dtMs / 1000f);
                             var extraMs = Mathf.Min((float)(renderTime - lastSnap.ServerTimeMs), maxExtrapolationMs);
-                            transform.position = lastPos + vel * (extraMs / 1000f);
+                            var pos = lastPos + vel * (extraMs / 1000f);
+                            pos.y = SampleHeight(pos);
+                            transform.position = pos;
                         }
                     }
                 }
@@ -162,6 +169,11 @@ namespace DVBARPG.Game.Player
                 var desired = Quaternion.LookRotation(_targetForward, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, desired, rotationLerp * Time.deltaTime);
             }
+        }
+
+        private float SampleHeight(Vector3 worldPos)
+        {
+            return UnifiedHeightSampler.SampleHeight(worldPos);
         }
     }
 }

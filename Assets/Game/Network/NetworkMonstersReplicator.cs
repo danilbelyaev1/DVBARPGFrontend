@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using UnityEngine;
+using DVBARPG.Game.World;
 namespace DVBARPG.Game.Network
 {
     public sealed class NetworkMonstersReplicator : MonoBehaviour
@@ -75,13 +76,17 @@ namespace DVBARPG.Game.Network
                         t = Mathf.Clamp01((float)((renderTime - from.ServerTimeMs) / dt));
                     }
 
-                    tr.position = Vector3.Lerp(fromPos, toPos, t);
+                    var pos = Vector3.Lerp(fromPos, toPos, t);
+                    pos.y = SampleHeight(pos);
+                    tr.position = pos;
                 }
                 else
                 {
                     var extraMs = Mathf.Min((float)(renderTime - to.ServerTimeMs), maxExtrapolationMs);
                     var vel = EstimateMonsterVelocity(m.Id);
-                    tr.position = toPos + vel * (extraMs / 1000f);
+                    var pos = toPos + vel * (extraMs / 1000f);
+                    pos.y = SampleHeight(pos);
+                    tr.position = pos;
                 }
                 if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
             }
@@ -126,6 +131,11 @@ namespace DVBARPG.Game.Network
             if (dtMs <= 0) return Vector3.zero;
 
             return (lastPos - prevPos) / (dtMs / 1000f);
+        }
+
+        private float SampleHeight(Vector3 worldPos)
+        {
+            return UnifiedHeightSampler.SampleHeight(worldPos);
         }
 
         public static bool TryGetTransform(Guid id, out Transform tr)

@@ -83,6 +83,23 @@ namespace DVBARPG.Net.Network
             if (!IsConnected || _udp == null) return;
             if (!_connectOk || !_instanceStarted) return;
 
+            if (command is CmdDebug debug)
+            {
+                var seq = NextSeq();
+                var env = new CommandEnvelope
+                {
+                    Type = debug.Type,
+                    Seq = seq
+                };
+                if (debug.HasPosition)
+                {
+                    env.X = debug.Position.x;
+                    env.Y = debug.Position.y;
+                }
+                SendReliable(env);
+                return;
+            }
+
             if (command is CmdMove move)
             {
                 if (Time.unscaledTime - _lastMoveLog > 1f)

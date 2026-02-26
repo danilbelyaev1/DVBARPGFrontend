@@ -88,6 +88,7 @@ namespace DVBARPG.Net.Network
         public bool Reliable { get; set; }
         public long ServerTimeMs { get; set; }
         public int AckSeq { get; set; }
+        public System.Collections.Generic.Dictionary<string, float>? Cooldowns { get; set; }
         public PlayerSnapshot Player { get; set; } = new();
         public MonsterSnapshot[] Monsters { get; set; } = System.Array.Empty<MonsterSnapshot>();
         public ProjectileSnapshot[] Projectiles { get; set; } = System.Array.Empty<ProjectileSnapshot>();
