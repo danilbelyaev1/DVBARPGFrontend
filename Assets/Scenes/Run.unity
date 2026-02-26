@@ -3622,7 +3622,7 @@ Transform:
   m_GameObject: {fileID: 961739749}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 2.41, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3641,8 +3641,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Camera.TopDownFollowCamera
   target: {fileID: 1950763405}
-  offset: {x: 0, y: 19.99, z: -20}
+  offset: {x: 5, y: 19.99, z: -20}
   followSpeed: 12
+  zoomSpeed: 100
+  minDistance: 4
+  maxDistance: 18
 --- !u!1 &962033736
 GameObject:
   m_ObjectHideFlags: 0
@@ -4814,7 +4817,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e2c8ef5b0fe8457088f916bac98031ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.NetworkMonstersReplicator
-  monsterPrefab: {fileID: 792777069777064362, guid: b8824f08da9b93d4fb52393b3203fe41, type: 3}
+  monsterPrefab: {fileID: 5156514006918746520, guid: b8824f08da9b93d4fb52393b3203fe41, type: 3}
   interpolationDelayMs: 100
   maxExtrapolationMs: 120
 --- !u!4 &1320802741
@@ -7159,8 +7162,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.MovementAnimator
   animator: {fileID: 1950763409}
-  speedSmooth: 10
   movingThreshold: 0.05
+  rotateToMovement: 0
+  rotationLerp: 10
 --- !u!95 &1950763409
 Animator:
   serializedVersion: 7
@@ -7170,7 +7174,7 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1950763399}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: 563108548ddef1d4bb73723bd899bab4, type: 3}
+  m_Avatar: {fileID: 9000000, guid: de13a7420582ded45a8d7d3f96889aca, type: 3}
   m_Controller: {fileID: 9100000, guid: d2da1f330bb1922428699707e94ee919, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
@@ -7849,7 +7853,7 @@ SceneRoots:
   - {fileID: 961739753}
   - {fileID: 203844589}
   - {fileID: 927063923}
-  - {fileID: 1950763405}
   - {fileID: 454478914}
   - {fileID: 1114105155}
+  - {fileID: 1950763405}
   - {fileID: 1206607512}
