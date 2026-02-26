@@ -5,15 +5,14 @@ namespace DVBARPG.Game.Network
 {
     public sealed class NetworkRunConnector : MonoBehaviour
     {
-        [Header("Сеть")]
-        [Tooltip("Адрес WebSocket сервера.")]
-        [SerializeField] private string serverUrl = "ws://localhost:8080/ws";
-        [Tooltip("ID карты на сервере.")]
+        [Header("Network")]
+        [Tooltip("UDP server endpoint.")]
+        [SerializeField] private string serverUrl = "udp://127.0.0.1:8081";
+        [Tooltip("Server map id.")]
         [SerializeField] private string mapId = "VadimTests";
 
         private void Start()
         {
-            // При входе в Run автоматически подключаемся к серверу.
             var session = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.ISessionService>();
             if (session is NetworkSessionRunner net)
             {
