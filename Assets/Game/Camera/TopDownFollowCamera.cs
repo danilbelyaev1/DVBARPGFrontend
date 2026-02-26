@@ -29,6 +29,8 @@ namespace DVBARPG.Game.Camera
         {
             _distance = offset.magnitude;
             _offsetDir = _distance > 0.001f ? offset.normalized : Vector3.back;
+            // При старте сцены сразу ставим камеру на максимальную дистанцию.
+            _distance = maxDistance;
         }
 
         private void LateUpdate()
