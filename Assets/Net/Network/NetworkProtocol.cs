@@ -19,8 +19,11 @@ namespace DVBARPG.Net.Network
 
     public sealed class CommandEnvelope
     {
-        // Унифицированная команда клиента → сервер.
         public string Type { get; set; } = "";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
         public int Seq { get; set; }
         public float? X { get; set; }
         public float? Y { get; set; }
@@ -34,6 +37,9 @@ namespace DVBARPG.Net.Network
     public sealed class HelloEnvelope
     {
         public string Type { get; set; } = "hello";
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
         public System.Guid SessionId { get; set; }
         public int TickRate { get; set; }
     }
@@ -41,6 +47,10 @@ namespace DVBARPG.Net.Network
     public sealed class ConnectOkEnvelope
     {
         public string Type { get; set; } = "connect_ok";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
         public System.Guid CharacterId { get; set; }
         public System.Guid SeasonId { get; set; }
         public string PlayerName { get; set; } = "";
@@ -49,6 +59,10 @@ namespace DVBARPG.Net.Network
     public sealed class InstanceStartEnvelope
     {
         public string Type { get; set; } = "instance_start";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
         public System.Guid InstanceId { get; set; }
         public int Seed { get; set; }
         public string MapId { get; set; } = "";
@@ -57,6 +71,10 @@ namespace DVBARPG.Net.Network
     public sealed class ErrorEnvelope
     {
         public string Type { get; set; } = "error";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
         public string Code { get; set; } = "";
         public string Message { get; set; } = "";
     }
@@ -64,6 +82,10 @@ namespace DVBARPG.Net.Network
     public sealed class SnapshotEnvelope
     {
         public string Type { get; set; } = "snapshot";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
         public long ServerTimeMs { get; set; }
         public int AckSeq { get; set; }
         public PlayerSnapshot Player { get; set; } = new();
@@ -95,5 +117,23 @@ namespace DVBARPG.Net.Network
         public float X { get; set; }
         public float Y { get; set; }
         public float Radius { get; set; }
+    }
+
+    public sealed class AckEnvelope
+    {
+        public string Type { get; set; } = "ack";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
+    }
+
+    public sealed class UdpEnvelopeBase
+    {
+        public string Type { get; set; } = "";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
     }
 }

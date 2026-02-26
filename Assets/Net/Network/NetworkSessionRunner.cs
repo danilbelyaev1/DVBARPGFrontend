@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Net.WebSockets;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
 using System.Threading;
@@ -19,21 +20,31 @@ namespace DVBARPG.Net.Network
         public event Action BufferUpdated;
         public event Action<int, Vector2, float> MoveSent;
 
-        private ClientWebSocket _socket;
+        private UdpClient _udp;
+        private IPEndPoint _remoteEndPoint;
         private CancellationTokenSource _cts;
         private Task _recvTask;
-        // Сырые снапшоты приходят из сети, обрабатываем их в Update на главном потоке.
+        private Task _resendTask;
+        private Task _keepaliveTask;
         private readonly ConcurrentQueue<SnapshotEnvelope> _snapshots = new();
         private int _seq;
-        private string _serverUrl = "ws://localhost:8080/ws";
+        private int _packetSeq;
+        private int _expectedServerPacketSeq;
+        private int _lastAckFromServer;
+        private readonly ConcurrentDictionary<int, PendingPacket> _pending = new();
+        private string _serverUrl = "udp://localhost:8081";
         private float _lastMoveLog;
         private bool _connectOk;
         private bool _instanceStarted;
-        // Общий буфер снапшотов для интерполяции/экстраполяции.
         private readonly List<SnapshotEnvelope> _buffer = new();
         private float _serverToLocalOffsetMs;
         private bool _hasTimeOffset;
         private readonly object _bufferLock = new();
+        private Guid? _sessionId;
+        private string _pendingMapId = "default";
+
+        private readonly TimeSpan _resendInterval = TimeSpan.FromMilliseconds(200);
+        private const int MaxRetries = 10;
 
         public void Connect(AuthSession session, string mapId, string serverUrl)
         {
@@ -41,51 +52,31 @@ namespace DVBARPG.Net.Network
             if (session == null) return;
 
             _serverUrl = string.IsNullOrWhiteSpace(serverUrl) ? _serverUrl : serverUrl;
+            _pendingMapId = string.IsNullOrWhiteSpace(mapId) ? "default" : mapId;
+
             _cts = new CancellationTokenSource();
-            _socket = new ClientWebSocket();
-            Debug.Log($"NetworkSessionRunner: connecting to {_serverUrl}");
+            _udp = new UdpClient(0);
+            _remoteEndPoint = ParseEndpoint(_serverUrl);
 
-            _recvTask = Task.Run(async () =>
+            Debug.Log($"NetworkSessionRunner: UDP connect to {_remoteEndPoint}");
+
+            _recvTask = Task.Run(async () => await ReceiveLoopAsync(_cts.Token));
+            _resendTask = Task.Run(async () => await ResendLoopAsync(_cts.Token));
+            _keepaliveTask = Task.Run(async () => await KeepaliveLoopAsync(_cts.Token));
+
+            SendReliable(new CommandEnvelope
             {
-                try
-                {
-                    await _socket.ConnectAsync(new Uri(_serverUrl), _cts.Token);
-                    IsConnected = true;
-                    Debug.Log("NetworkSessionRunner: connected");
-
-                    await SendEnvelopeAsync(new CommandEnvelope
-                    {
-                        Type = "connect",
-                        Seq = NextSeq(),
-                        Token = session.Token,
-                        CharacterId = session.CharacterId,
-                        SeasonId = session.SeasonId
-                    });
-
-                    await SendEnvelopeAsync(new CommandEnvelope
-                    {
-                        Type = "start",
-                        Seq = NextSeq(),
-                        MapId = string.IsNullOrWhiteSpace(mapId) ? "default" : mapId
-                    });
-
-                    await ReceiveLoopAsync(_cts.Token);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"NetworkSessionRunner: {e.GetType().Name} {e.Message}\n{e.StackTrace}");
-                }
-                finally
-                {
-                    IsConnected = false;
-                    Debug.Log("NetworkSessionRunner: disconnected");
-                }
+                Type = "connect",
+                Seq = NextSeq(),
+                Token = session.Token,
+                CharacterId = session.CharacterId,
+                SeasonId = session.SeasonId
             });
         }
 
         public void Send(IClientCommand command)
         {
-            if (!IsConnected || _socket == null || _socket.State != WebSocketState.Open) return;
+            if (!IsConnected || _udp == null) return;
             if (!_connectOk || !_instanceStarted) return;
 
             if (command is CmdMove move)
@@ -97,7 +88,7 @@ namespace DVBARPG.Net.Network
                 }
                 var seq = NextSeq();
                 MoveSent?.Invoke(seq, new Vector2(move.Direction.x, move.Direction.z), move.DeltaTime);
-                _ = SendEnvelopeAsync(new CommandEnvelope
+                SendReliable(new CommandEnvelope
                 {
                     Type = "move",
                     Seq = seq,
@@ -110,7 +101,7 @@ namespace DVBARPG.Net.Network
             if (command is CmdStop)
             {
                 var seq = NextSeq();
-                _ = SendEnvelopeAsync(new CommandEnvelope
+                SendReliable(new CommandEnvelope
                 {
                     Type = "stop",
                     Seq = seq
@@ -126,12 +117,10 @@ namespace DVBARPG.Net.Network
 
                 lock (_bufferLock)
                 {
-                    // Кладём снапшот в буфер для интерполяции.
                     _buffer.Add(snap);
                     if (_buffer.Count > 30) _buffer.RemoveAt(0);
                     if (!_hasTimeOffset)
                     {
-                        // Вычисляем смещение времени: serverTime -> localTime.
                         _serverToLocalOffsetMs = Time.unscaledTime * 1000f - snap.ServerTimeMs;
                         _hasTimeOffset = true;
                     }
@@ -153,7 +142,6 @@ namespace DVBARPG.Net.Network
 
                 var localNowMs = Time.unscaledTime * 1000f;
                 var serverNowMs = localNowMs - _serverToLocalOffsetMs;
-                // Отрисовываем чуть в прошлом, чтобы стабильно интерполировать.
                 renderTimeMs = serverNowMs - interpolationDelayMs;
 
                 for (int i = 0; i < _buffer.Count; i++)
@@ -189,24 +177,24 @@ namespace DVBARPG.Net.Network
 
         private async Task ReceiveLoopAsync(CancellationToken ct)
         {
-            var buffer = new byte[8192];
-            while (_socket.State == WebSocketState.Open && !ct.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
-                using var ms = new System.IO.MemoryStream();
-                WebSocketReceiveResult result;
-                do
+                UdpReceiveResult result;
+                try
                 {
-                    result = await _socket.ReceiveAsync(buffer, ct);
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        Debug.LogWarning("NetworkSessionRunner: socket closed by server.");
-                        return;
-                    }
-                    ms.Write(buffer, 0, result.Count);
-                } while (!result.EndOfMessage);
+                    result = await _udp.ReceiveAsync();
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"NetworkSessionRunner: recv failed {e.GetType().Name} {e.Message}");
+                    continue;
+                }
 
-                var json = Encoding.UTF8.GetString(ms.ToArray());
-                Debug.Log($"WS RECV: {json}");
+                var json = Encoding.UTF8.GetString(result.Buffer);
                 TryHandleMessage(json);
             }
         }
@@ -215,8 +203,27 @@ namespace DVBARPG.Net.Network
         {
             try
             {
-                var baseEnv = JsonConvert.DeserializeObject<BaseEnvelope>(json, NetProtocol.JsonSettings);
+                var baseEnv = JsonConvert.DeserializeObject<UdpEnvelopeBase>(json, NetProtocol.JsonSettings);
                 if (baseEnv == null) return;
+
+                if (baseEnv.Ack > _lastAckFromServer)
+                {
+                    _lastAckFromServer = baseEnv.Ack;
+                    CleanupPending();
+                }
+
+                if (baseEnv.Type == "ack")
+                {
+                    return;
+                }
+
+                if (baseEnv.Reliable)
+                {
+                    if (!AcceptReliable(baseEnv.PacketSeq))
+                    {
+                        return;
+                    }
+                }
 
                 switch (baseEnv.Type)
                 {
@@ -226,6 +233,7 @@ namespace DVBARPG.Net.Network
                         break;
                     case "connect_ok":
                         _connectOk = true;
+                        TrySendStart();
                         break;
                     case "instance_start":
                         _instanceStarted = true;
@@ -238,6 +246,12 @@ namespace DVBARPG.Net.Network
                         }
                         break;
                     case "hello":
+                        var hello = JsonConvert.DeserializeObject<HelloEnvelope>(json, NetProtocol.JsonSettings);
+                        if (hello != null)
+                        {
+                            _sessionId = hello.SessionId;
+                            IsConnected = true;
+                        }
                         break;
                 }
             }
@@ -246,21 +260,150 @@ namespace DVBARPG.Net.Network
             }
         }
 
+        private bool AcceptReliable(int packetSeq)
+        {
+            var expected = _expectedServerPacketSeq + 1;
+            if (packetSeq < expected)
+            {
+                return false;
+            }
+
+            if (packetSeq > expected)
+            {
+                return false;
+            }
+
+            _expectedServerPacketSeq = packetSeq;
+            return true;
+        }
+
+        private void TrySendStart()
+        {
+            if (!_connectOk || _sessionId == null) return;
+
+            SendReliable(new CommandEnvelope
+            {
+                Type = "start",
+                Seq = NextSeq(),
+                MapId = _pendingMapId
+            });
+        }
+
         private int NextSeq() => Interlocked.Increment(ref _seq);
 
-        private async Task SendEnvelopeAsync(CommandEnvelope cmd)
+        private void SendReliable(CommandEnvelope cmd)
         {
+            cmd.SessionId = _sessionId;
+            cmd.Reliable = true;
+            cmd.PacketSeq = Interlocked.Increment(ref _packetSeq);
+            cmd.Ack = _expectedServerPacketSeq;
+
             var json = JsonConvert.SerializeObject(cmd, NetProtocol.JsonSettings);
-            Debug.Log($"WS SEND: {json}");
             var bytes = Encoding.UTF8.GetBytes(json);
-            try
+
+            _pending[cmd.PacketSeq] = new PendingPacket
             {
-                await _socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
-            }
-            catch (Exception e)
+                Payload = bytes,
+                LastSentUtc = DateTime.UtcNow,
+                Retries = 0
+            };
+
+            _ = _udp.SendAsync(bytes, bytes.Length, _remoteEndPoint);
+        }
+
+        private async Task ResendLoopAsync(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
             {
-                Debug.LogWarning($"NetworkSessionRunner: send failed {e.GetType().Name} {e.Message}");
+                var now = DateTime.UtcNow;
+                foreach (var kvp in _pending)
+                {
+                    var seq = kvp.Key;
+                    var pending = kvp.Value;
+                    if (now - pending.LastSentUtc < _resendInterval)
+                    {
+                        continue;
+                    }
+
+                    if (pending.Retries >= MaxRetries)
+                    {
+                        _pending.TryRemove(seq, out _);
+                        continue;
+                    }
+
+                    pending.Retries++;
+                    pending.LastSentUtc = now;
+                    await _udp.SendAsync(pending.Payload, pending.Payload.Length, _remoteEndPoint);
+                }
+
+                try
+                {
+                    await Task.Delay(50, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
             }
+        }
+
+        private async Task KeepaliveLoopAsync(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                if (_udp != null && _sessionId != null)
+                {
+                    var ack = new AckEnvelope
+                    {
+                        SessionId = _sessionId,
+                        Ack = _expectedServerPacketSeq,
+                        Reliable = false
+                    };
+
+                    var json = JsonConvert.SerializeObject(ack, NetProtocol.JsonSettings);
+                    var bytes = Encoding.UTF8.GetBytes(json);
+                    await _udp.SendAsync(bytes, bytes.Length, _remoteEndPoint);
+                }
+
+                try
+                {
+                    await Task.Delay(500, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+        }
+
+        private void CleanupPending()
+        {
+            var ack = _lastAckFromServer;
+            foreach (var seq in _pending.Keys)
+            {
+                if (seq <= ack)
+                {
+                    _pending.TryRemove(seq, out _);
+                }
+            }
+        }
+
+        private static IPEndPoint ParseEndpoint(string serverUrl)
+        {
+            if (Uri.TryCreate(serverUrl, UriKind.Absolute, out var uri))
+            {
+                var host = uri.Host;
+                var port = uri.Port > 0 ? uri.Port : 8081;
+                return new IPEndPoint(Dns.GetHostAddresses(host)[0], port);
+            }
+
+            var parts = serverUrl.Split(':');
+            if (parts.Length == 2 && int.TryParse(parts[1], out var p))
+            {
+                return new IPEndPoint(Dns.GetHostAddresses(parts[0])[0], p);
+            }
+
+            return new IPEndPoint(Dns.GetHostAddresses(serverUrl)[0], 8081);
         }
 
         private void OnDestroy()
@@ -268,11 +411,18 @@ namespace DVBARPG.Net.Network
             try
             {
                 _cts?.Cancel();
-                _socket?.Dispose();
+                _udp?.Dispose();
             }
             catch
             {
             }
         }
+    }
+
+    internal sealed class PendingPacket
+    {
+        public byte[] Payload;
+        public DateTime LastSentUtc;
+        public int Retries;
     }
 }
