@@ -20,6 +20,10 @@ namespace DVBARPG.Net.Network
         public event Action BufferUpdated;
         public event Action<int, Vector2, float> MoveSent;
 
+        [Header("Отладка UDP")]
+        [Tooltip("Включить логирование отправки/приёма UDP пакетов.")]
+        [SerializeField] private bool logUdpTraffic = true;
+
         private UdpClient _udp;
         private IPEndPoint _remoteEndPoint;
         private CancellationTokenSource _cts;
@@ -32,7 +36,7 @@ namespace DVBARPG.Net.Network
         private int _expectedServerPacketSeq;
         private int _lastAckFromServer;
         private readonly ConcurrentDictionary<int, PendingPacket> _pending = new();
-        private string _serverUrl = "udp://localhost:8081";
+        private string _serverUrl = "udp://127.0.0.1:8081";
         private float _lastMoveLog;
         private bool _connectOk;
         private bool _instanceStarted;
@@ -195,6 +199,10 @@ namespace DVBARPG.Net.Network
                 }
 
                 var json = Encoding.UTF8.GetString(result.Buffer);
+                if (logUdpTraffic)
+                {
+                    Debug.Log($"UDP RECV: {json}");
+                }
                 TryHandleMessage(json);
             }
         }
@@ -308,6 +316,10 @@ namespace DVBARPG.Net.Network
                 Retries = 0
             };
 
+            if (logUdpTraffic)
+            {
+                Debug.Log($"UDP SEND: {json}");
+            }
             _ = _udp.SendAsync(bytes, bytes.Length, _remoteEndPoint);
         }
 

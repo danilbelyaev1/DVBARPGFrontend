@@ -9,7 +9,7 @@ namespace DVBARPG.Game.Network
         [Tooltip("UDP server endpoint.")]
         [SerializeField] private string serverUrl = "udp://127.0.0.1:8081";
         [Tooltip("Server map id.")]
-        [SerializeField] private string mapId = "VadimTests";
+        [SerializeField] private string mapId = "default";
 
         private void Start()
         {
