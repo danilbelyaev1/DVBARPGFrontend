@@ -14,6 +14,8 @@ namespace DVBARPG.Game.Camera
         [SerializeField] private Vector3 offset = new Vector3(0f, 10f, -6f);
         [Tooltip("Скорость сглаживания следования.")]
         [SerializeField] private float followSpeed = 12f;
+        [Tooltip("Жёстко фиксировать камеру на цели (без сглаживания).")]
+        [SerializeField] private bool lockToTarget = true;
         [Header("Зум")]
         [Tooltip("Скорость зума колёсиком мыши.")]
         [SerializeField] private float zoomSpeed = 5f;
@@ -37,11 +39,18 @@ namespace DVBARPG.Game.Camera
         {
             if (target == null) return;
 
-            // Плавно следуем за целью и смотрим на неё.
+            // Следуем за целью и смотрим на неё.
             ApplyZoomInput();
             offset = _offsetDir * _distance;
             var desired = target.position + offset;
-            transform.position = Vector3.Lerp(transform.position, desired, followSpeed * Time.deltaTime);
+            if (lockToTarget)
+            {
+                transform.position = desired;
+            }
+            else
+            {
+                transform.position = Vector3.Lerp(transform.position, desired, followSpeed * Time.deltaTime);
+            }
             transform.LookAt(target.position, Vector3.up);
         }
 
