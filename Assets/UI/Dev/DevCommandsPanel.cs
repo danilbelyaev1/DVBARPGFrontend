@@ -2,6 +2,7 @@ using DVBARPG.Net.Commands;
 using DVBARPG.Net.Network;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 namespace DVBARPG.UI.Dev
 {
@@ -63,7 +64,7 @@ namespace DVBARPG.UI.Dev
 
         private void Update()
         {
-            if (toggleKey != KeyCode.None && Input.GetKeyDown(toggleKey))
+            if (toggleKey != KeyCode.None && Keyboard.current != null && Keyboard.current[ToInputKey(toggleKey)].wasPressedThisFrame)
             {
                 ToggleVisible();
             }
@@ -103,6 +104,26 @@ namespace DVBARPG.UI.Dev
         private void SetVisible(bool visible)
         {
             if (contentRoot != null) contentRoot.SetActive(visible);
+        }
+
+        private static Key ToInputKey(KeyCode key)
+        {
+            switch (key)
+            {
+                case KeyCode.F1: return Key.F1;
+                case KeyCode.F2: return Key.F2;
+                case KeyCode.F3: return Key.F3;
+                case KeyCode.F4: return Key.F4;
+                case KeyCode.F5: return Key.F5;
+                case KeyCode.F6: return Key.F6;
+                case KeyCode.F7: return Key.F7;
+                case KeyCode.F8: return Key.F8;
+                case KeyCode.F9: return Key.F9;
+                case KeyCode.F10: return Key.F10;
+                case KeyCode.F11: return Key.F11;
+                case KeyCode.F12: return Key.F12;
+                default: return Key.F1;
+            }
         }
     }
 }
