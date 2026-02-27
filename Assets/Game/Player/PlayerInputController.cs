@@ -2,6 +2,7 @@ using DVBARPG.Core;
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Commands;
 using UnityEngine;
+using DVBARPG.Tools;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -43,6 +44,8 @@ namespace DVBARPG.Game.Player
 
         private void Update()
         {
+            using (RuntimeProfiler.Sample("PlayerInputController.Update"))
+            {
             // Если нет сессии — не отправляем ввод.
             if (_session == null) return;
             if (!CanMove()) return;
@@ -74,6 +77,7 @@ namespace DVBARPG.Game.Player
                 DeltaTime = Time.deltaTime
             });
             _wasMoving = true;
+            }
         }
 
         private bool CanMove()

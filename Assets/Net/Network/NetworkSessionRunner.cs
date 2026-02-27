@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Commands;
+using DVBARPG.Tools;
 using UnityEngine;
 
 namespace DVBARPG.Net.Network
@@ -46,6 +47,7 @@ namespace DVBARPG.Net.Network
         private readonly object _bufferLock = new();
         private Guid? _sessionId;
         private string _pendingMapId = "default";
+        private float _avgPingMs;
 
         private readonly TimeSpan _resendInterval = TimeSpan.FromMilliseconds(200);
         private const int MaxRetries = 10;
@@ -89,7 +91,8 @@ namespace DVBARPG.Net.Network
                 var env = new CommandEnvelope
                 {
                     Type = debug.Type,
-                    Seq = seq
+                    Seq = seq,
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f)
                 };
                 if (debug.HasPosition)
                 {
@@ -109,10 +112,11 @@ namespace DVBARPG.Net.Network
                 }
                 var seq = NextSeq();
                 MoveSent?.Invoke(seq, new Vector2(move.Direction.x, move.Direction.z), move.DeltaTime);
-                SendReliable(new CommandEnvelope
+                SendUnreliable(new CommandEnvelope
                 {
                     Type = "move",
                     Seq = seq,
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f),
                     X = move.Direction.x,
                     Y = move.Direction.z
                 });
@@ -122,17 +126,20 @@ namespace DVBARPG.Net.Network
             if (command is CmdStop)
             {
                 var seq = NextSeq();
-                SendReliable(new CommandEnvelope
+                SendUnreliable(new CommandEnvelope
                 {
                     Type = "stop",
-                    Seq = seq
+                    Seq = seq,
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f)
                 });
             }
         }
 
         private void Update()
         {
-            while (_snapshots.TryDequeue(out var snap))
+            using (RuntimeProfiler.Sample("NetworkSessionRunner.Update"))
+            {
+                while (_snapshots.TryDequeue(out var snap))
             {
                 Snapshot?.Invoke(snap);
 
@@ -147,8 +154,10 @@ namespace DVBARPG.Net.Network
                     }
                 }
 
-                BufferUpdated?.Invoke();
+                    BufferUpdated?.Invoke();
+                }
             }
+
         }
 
         public bool TryGetSnapshotsForRender(float interpolationDelayMs, out SnapshotEnvelope from, out SnapshotEnvelope to, out float renderTimeMs)
@@ -163,7 +172,16 @@ namespace DVBARPG.Net.Network
 
                 var localNowMs = Time.unscaledTime * 1000f;
                 var serverNowMs = localNowMs - _serverToLocalOffsetMs;
-                renderTimeMs = serverNowMs - interpolationDelayMs;
+                var halfRttMs = _avgPingMs > 0f ? _avgPingMs * 0.5f : 0f;
+                renderTimeMs = serverNowMs - interpolationDelayMs + halfRttMs;
+
+                // Prevent getting stuck too far behind if offset was learned from a delayed packet.
+                var last = _buffer[_buffer.Count - 1];
+                var maxBehindMs = Mathf.Max(100f, interpolationDelayMs * 2f);
+                if (last.ServerTimeMs - renderTimeMs > maxBehindMs)
+                {
+                    renderTimeMs = last.ServerTimeMs - maxBehindMs;
+                }
 
                 for (int i = 0; i < _buffer.Count; i++)
                 {
@@ -278,7 +296,15 @@ namespace DVBARPG.Net.Network
                             IsConnected = true;
                         }
                         break;
+                    case "net_stats":
+                        var stats = JsonConvert.DeserializeObject<NetworkStatsEnvelope>(json, NetProtocol.JsonSettings);
+                        if (stats != null)
+                        {
+                            _avgPingMs = stats.AvgPingMs;
+                        }
+                        break;
                 }
+
             }
             catch
             {
@@ -332,6 +358,23 @@ namespace DVBARPG.Net.Network
                 LastSentUtc = DateTime.UtcNow,
                 Retries = 0
             };
+
+            if (logUdpTraffic)
+            {
+                Debug.Log($"UDP SEND: {json}");
+            }
+            _ = _udp.SendAsync(bytes, bytes.Length, _remoteEndPoint);
+        }
+
+        private void SendUnreliable(CommandEnvelope cmd)
+        {
+            cmd.SessionId = _sessionId;
+            cmd.Reliable = false;
+            cmd.PacketSeq = 0;
+            cmd.Ack = _expectedServerPacketSeq;
+
+            var json = JsonConvert.SerializeObject(cmd, NetProtocol.JsonSettings);
+            var bytes = Encoding.UTF8.GetBytes(json);
 
             if (logUdpTraffic)
             {

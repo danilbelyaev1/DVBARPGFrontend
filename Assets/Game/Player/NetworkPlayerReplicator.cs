@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using UnityEngine;
 using DVBARPG.Game.World;
+using DVBARPG.Tools;
 namespace DVBARPG.Game.Player
 {
     public sealed class NetworkPlayerReplicator : MonoBehaviour
@@ -122,6 +123,8 @@ namespace DVBARPG.Game.Player
 
         private void Update()
         {
+            using (RuntimeProfiler.Sample("NetworkPlayerReplicator.Update"))
+            {
             if (_net == null) return;
 
             if (!enablePrediction)
@@ -168,6 +171,7 @@ namespace DVBARPG.Game.Player
             {
                 var desired = Quaternion.LookRotation(_targetForward, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, desired, rotationLerp * Time.deltaTime);
+            }
             }
         }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using DVBARPG.Game.World;
 using UnityEngine;
+using DVBARPG.Tools;
 
 namespace DVBARPG.Game.Network
 {
@@ -30,6 +31,9 @@ namespace DVBARPG.Game.Network
 
         private NetworkSessionRunner _net;
         private readonly Dictionary<Guid, Transform> _projectiles = new();
+        private readonly Dictionary<Guid, float> _projectileBaseDiameters = new();
+        private readonly HashSet<Guid> _seen = new();
+        private readonly List<Guid> _toDisable = new();
 
         private void OnEnable()
         {
@@ -39,22 +43,25 @@ namespace DVBARPG.Game.Network
 
         private void Update()
         {
-            if (projectilePrefab == null || _net == null) return;
-
-            if (!_net.TryGetSnapshotsForRender(interpolationDelayMs, out var from, out var to, out var renderTime))
+            using (RuntimeProfiler.Sample("NetworkProjectilesReplicator.Update"))
             {
-                return;
-            }
+                if (projectilePrefab == null || _net == null) return;
 
-            var seen = new HashSet<Guid>();
+                if (!_net.TryGetSnapshotsForRender(interpolationDelayMs, out var from, out var to, out var renderTime))
+                {
+                    return;
+                }
+
+            _seen.Clear();
             foreach (var p in to.Projectiles)
             {
-                seen.Add(p.Id);
+                _seen.Add(p.Id);
                 if (!_projectiles.TryGetValue(p.Id, out var tr) || tr == null)
                 {
                     tr = Instantiate(projectilePrefab, transform);
                     tr.name = $"Projectile-{p.Id.ToString().Substring(0, 8)}";
                     _projectiles[p.Id] = tr;
+                    _projectileBaseDiameters[p.Id] = ComputePrefabBaseDiameter(tr);
                 }
 
                 var hasFrom = TryGetProjectilePos(from, p.Id, out var fromPos);
@@ -85,7 +92,7 @@ namespace DVBARPG.Game.Network
                 if (scaleByRadius)
                 {
                     var size = Mathf.Max(0.05f, p.Radius * 2f);
-                    var baseDiameter = GetPrefabBaseDiameter(tr);
+                    var baseDiameter = GetCachedBaseDiameter(p.Id, tr);
                     var scale = size / baseDiameter;
                     tr.localScale = new Vector3(scale, scale, scale);
                 }
@@ -93,23 +100,25 @@ namespace DVBARPG.Game.Network
                 if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
             }
 
-            var toDisable = new List<Guid>();
+            _toDisable.Clear();
             foreach (var kv in _projectiles)
             {
-                if (!seen.Contains(kv.Key))
+                if (!_seen.Contains(kv.Key))
                 {
                     if (kv.Value != null) kv.Value.gameObject.SetActive(false);
-                    toDisable.Add(kv.Key);
+                    _toDisable.Add(kv.Key);
                 }
             }
 
-            foreach (var id in toDisable)
-            {
-                if (_projectiles.TryGetValue(id, out var tr) && tr != null)
+                foreach (var id in _toDisable)
                 {
-                    Destroy(tr.gameObject);
+                    if (_projectiles.TryGetValue(id, out var tr) && tr != null)
+                    {
+                        Destroy(tr.gameObject);
+                    }
+                    _projectiles.Remove(id);
+                    _projectileBaseDiameters.Remove(id);
                 }
-                _projectiles.Remove(id);
             }
         }
 
@@ -140,10 +149,21 @@ namespace DVBARPG.Game.Network
             return (lastPos - prevPos) / (dtMs / 1000f);
         }
 
-        private float GetPrefabBaseDiameter(Transform instance)
+        private float GetCachedBaseDiameter(Guid id, Transform instance)
         {
-            var baseDiameter = prefabBaseDiameter;
-            if (baseDiameter > 0.001f) return baseDiameter;
+            if (prefabBaseDiameter > 0.001f) return prefabBaseDiameter;
+            if (_projectileBaseDiameters.TryGetValue(id, out var cached) && cached > 0.001f)
+            {
+                return cached;
+            }
+
+            var computed = ComputePrefabBaseDiameter(instance);
+            _projectileBaseDiameters[id] = computed;
+            return computed;
+        }
+
+        private float ComputePrefabBaseDiameter(Transform instance)
+        {
             // Автоматически вычисляем базовый диаметр по визуалу префаба.
             var renderer = instance.GetComponentInChildren<Renderer>();
             if (renderer == null)

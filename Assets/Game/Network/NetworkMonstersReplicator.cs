@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using UnityEngine;
 using DVBARPG.Game.World;
+using DVBARPG.Tools;
 namespace DVBARPG.Game.Network
 {
     public sealed class NetworkMonstersReplicator : MonoBehaviour
@@ -19,6 +20,8 @@ namespace DVBARPG.Game.Network
 
         private NetworkSessionRunner _net;
         private readonly Dictionary<Guid, Transform> _monsters = new();
+        private readonly HashSet<Guid> _seen = new();
+        private readonly List<Guid> _toDisable = new();
 
         private void OnEnable()
         {
@@ -45,66 +48,69 @@ namespace DVBARPG.Game.Network
 
         private void Update()
         {
-            if (monsterPrefab == null || _net == null) return;
-
-            if (!_net.TryGetSnapshotsForRender(interpolationDelayMs, out var from, out var to, out var renderTime))
+            using (RuntimeProfiler.Sample("NetworkMonstersReplicator.Update"))
             {
-                return;
-            }
+                if (monsterPrefab == null || _net == null) return;
 
-            var seen = new HashSet<Guid>();
-            foreach (var m in to.Monsters)
-            {
-                seen.Add(m.Id);
-                if (!_monsters.TryGetValue(m.Id, out var tr) || tr == null)
+                if (!_net.TryGetSnapshotsForRender(interpolationDelayMs, out var from, out var to, out var renderTime))
                 {
-                    tr = Instantiate(monsterPrefab, transform);
-                    tr.name = $"Monster-{m.Id.ToString().Substring(0, 8)}";
-                    _monsters[m.Id] = tr;
-                    Registry[m.Id] = tr;
+                    return;
                 }
 
-                var fromPos = GetMonsterPos(from, m.Id);
-                var toPos = new Vector3(m.X, 0f, m.Y);
-
-                if (renderTime <= to.ServerTimeMs)
+                _seen.Clear();
+                foreach (var m in to.Monsters)
                 {
-                    float t = 0f;
-                    var dt = to.ServerTimeMs - from.ServerTimeMs;
-                    if (dt > 0)
+                    _seen.Add(m.Id);
+                    if (!_monsters.TryGetValue(m.Id, out var tr) || tr == null)
                     {
-                        t = Mathf.Clamp01((float)((renderTime - from.ServerTimeMs) / dt));
+                        tr = Instantiate(monsterPrefab, transform);
+                        tr.name = $"Monster-{m.Id.ToString().Substring(0, 8)}";
+                        _monsters[m.Id] = tr;
+                        Registry[m.Id] = tr;
                     }
 
-                    var pos = Vector3.Lerp(fromPos, toPos, t);
-                    pos.y = SampleHeight(pos);
-                    tr.position = pos;
-                }
-                else
-                {
-                    var extraMs = Mathf.Min((float)(renderTime - to.ServerTimeMs), maxExtrapolationMs);
-                    var vel = EstimateMonsterVelocity(m.Id);
-                    var pos = toPos + vel * (extraMs / 1000f);
-                    pos.y = SampleHeight(pos);
-                    tr.position = pos;
-                }
-                if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
-            }
+                    var fromPos = GetMonsterPos(from, m.Id);
+                    var toPos = new Vector3(m.X, 0f, m.Y);
 
-            var toDisable = new List<Guid>();
-            foreach (var kv in _monsters)
-            {
-                if (!seen.Contains(kv.Key))
-                {
-                    if (kv.Value != null) kv.Value.gameObject.SetActive(false);
-                    toDisable.Add(kv.Key);
-                }
-            }
+                    if (renderTime <= to.ServerTimeMs)
+                    {
+                        float t = 0f;
+                        var dt = to.ServerTimeMs - from.ServerTimeMs;
+                        if (dt > 0)
+                        {
+                            t = Mathf.Clamp01((float)((renderTime - from.ServerTimeMs) / dt));
+                        }
 
-            foreach (var id in toDisable)
-            {
-                Registry.Remove(id);
-                _monsters.Remove(id);
+                        var pos = Vector3.Lerp(fromPos, toPos, t);
+                        pos.y = SampleHeight(pos);
+                        tr.position = pos;
+                    }
+                    else
+                    {
+                        var extraMs = Mathf.Min((float)(renderTime - to.ServerTimeMs), maxExtrapolationMs);
+                        var vel = EstimateMonsterVelocity(m.Id);
+                        var pos = toPos + vel * (extraMs / 1000f);
+                        pos.y = SampleHeight(pos);
+                        tr.position = pos;
+                    }
+                    if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
+                }
+
+                _toDisable.Clear();
+                foreach (var kv in _monsters)
+                {
+                    if (!_seen.Contains(kv.Key))
+                    {
+                        if (kv.Value != null) kv.Value.gameObject.SetActive(false);
+                        _toDisable.Add(kv.Key);
+                    }
+                }
+
+                foreach (var id in _toDisable)
+                {
+                    Registry.Remove(id);
+                    _monsters.Remove(id);
+                }
             }
         }
 

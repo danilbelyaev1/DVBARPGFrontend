@@ -2,6 +2,7 @@ using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
+using DVBARPG.Tools;
 
 namespace DVBARPG.Game.Camera
 {
@@ -37,21 +38,24 @@ namespace DVBARPG.Game.Camera
 
         private void LateUpdate()
         {
-            if (target == null) return;
+            using (RuntimeProfiler.Sample("TopDownFollowCamera.LateUpdate"))
+            {
+                if (target == null) return;
 
-            // Следуем за целью и смотрим на неё.
-            ApplyZoomInput();
-            offset = _offsetDir * _distance;
-            var desired = target.position + offset;
-            if (lockToTarget)
-            {
-                transform.position = desired;
+                // Следуем за целью и смотрим на неё.
+                ApplyZoomInput();
+                offset = _offsetDir * _distance;
+                var desired = target.position + offset;
+                if (lockToTarget)
+                {
+                    transform.position = desired;
+                }
+                else
+                {
+                    transform.position = Vector3.Lerp(transform.position, desired, followSpeed * Time.deltaTime);
+                }
+                transform.LookAt(target.position, Vector3.up);
             }
-            else
-            {
-                transform.position = Vector3.Lerp(transform.position, desired, followSpeed * Time.deltaTime);
-            }
-            transform.LookAt(target.position, Vector3.up);
         }
 
         private void ApplyZoomInput()

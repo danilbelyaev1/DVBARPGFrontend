@@ -25,6 +25,7 @@ namespace DVBARPG.Net.Network
         public int Ack { get; set; }
         public bool Reliable { get; set; }
         public int Seq { get; set; }
+        public long? ClientTimeMs { get; set; }
         public float? X { get; set; }
         public float? Y { get; set; }
         public string? SkillId { get; set; }
@@ -92,6 +93,19 @@ namespace DVBARPG.Net.Network
         public PlayerSnapshot Player { get; set; } = new();
         public MonsterSnapshot[] Monsters { get; set; } = System.Array.Empty<MonsterSnapshot>();
         public ProjectileSnapshot[] Projectiles { get; set; } = System.Array.Empty<ProjectileSnapshot>();
+    }
+
+    public sealed class NetworkStatsEnvelope
+    {
+        public string Type { get; set; } = "net_stats";
+        public System.Guid? SessionId { get; set; }
+        public int PacketSeq { get; set; }
+        public int Ack { get; set; }
+        public bool Reliable { get; set; }
+        public int TicksLastSec { get; set; }
+        public int SentSnapshotsLastSec { get; set; }
+        public float PacketLossPct { get; set; }
+        public float AvgPingMs { get; set; }
     }
 
     public sealed class PlayerSnapshot

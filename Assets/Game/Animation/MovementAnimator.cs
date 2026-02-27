@@ -1,4 +1,5 @@
 using UnityEngine;
+using DVBARPG.Tools;
 
 namespace DVBARPG.Game.Animation
 {
@@ -30,9 +31,11 @@ namespace DVBARPG.Game.Animation
 
         private void Update()
         {
-            var pos = transform.position;
-            var delta = pos - _lastPos;
-            _lastPos = pos;
+            using (RuntimeProfiler.Sample("MovementAnimator.Update"))
+            {
+                var pos = transform.position;
+                var delta = pos - _lastPos;
+                _lastPos = pos;
 
             var speedNow = delta.magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
             var isMoving = speedNow > movingThreshold;
@@ -40,12 +43,13 @@ namespace DVBARPG.Game.Animation
             // Только флаг движения, без параметра скорости.
             animator.SetBool(IsMovingHash, isMoving);
 
-            if (rotateToMovement && delta.sqrMagnitude > 0.0001f)
-            {
-                // Поворачиваем объект в сторону фактического движения.
-                var dir = new Vector3(delta.x, 0f, delta.z).normalized;
-                var targetRot = Quaternion.LookRotation(dir, Vector3.up);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationLerp * Time.deltaTime);
+                if (rotateToMovement && delta.sqrMagnitude > 0.0001f)
+                {
+                    // Поворачиваем объект в сторону фактического движения.
+                    var dir = new Vector3(delta.x, 0f, delta.z).normalized;
+                    var targetRot = Quaternion.LookRotation(dir, Vector3.up);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationLerp * Time.deltaTime);
+                }
             }
         }
     }
