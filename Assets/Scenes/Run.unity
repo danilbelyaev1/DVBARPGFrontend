@@ -13876,6 +13876,7 @@ MonoBehaviour:
   monsterPrefab: {fileID: 5156514006918746520, guid: b8824f08da9b93d4fb52393b3203fe41, type: 3}
   interpolationDelayMs: 100
   maxExtrapolationMs: 120
+  positionSmoothing: 12
 --- !u!4 &1320802741
 Transform:
   m_ObjectHideFlags: 0
@@ -19994,6 +19995,7 @@ MonoBehaviour:
   movingOnThreshold: 0.15
   movingOffThreshold: 0.05
   speedSmoothingTime: 0.1
+  instantStop: 1
   rotateToMovement: 0
   rotationLerp: 10
 --- !u!95 &1950763409
@@ -20032,10 +20034,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.AbilityAnimationDriver
   animator: {fileID: 1950763409}
   abilities:
-  - SkillId: 
-    Triggers: []
-  fallbackTrigger: Attack
-  variantMode: 0
+  - SkillId: humanoid_melee
+    Triggers:
+    - Melee_A
+    - Melee_B
+  - SkillId: humanoid_projectile
+    Triggers:
+    - Ranged
+  fallbackTrigger: 
+  variantMode: 1
+  controlAttackLayerWeight: 1
+  attackLayerName: AttackHumanoid
+  attackLayerWeight: 1
+  layerFadeSpeed: 6
+  attackStateName: attack
+  meleeSkillId: humanoid_melee
+  rangedSkillId: humanoid_ranged
 --- !u!1 &1965195878
 GameObject:
   m_ObjectHideFlags: 0
