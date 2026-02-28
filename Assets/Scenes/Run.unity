@@ -19919,6 +19919,7 @@ GameObject:
   - component: {fileID: 1950763407}
   - component: {fileID: 1950763409}
   - component: {fileID: 1950763408}
+  - component: {fileID: 1950763410}
   m_Layer: 6
   m_Name: Player
   m_TagString: Untagged
@@ -19990,7 +19991,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.MovementAnimator
   animator: {fileID: 1950763409}
-  movingThreshold: 0.05
+  movingOnThreshold: 0.15
+  movingOffThreshold: 0.05
+  speedSmoothingTime: 0.1
   rotateToMovement: 0
   rotationLerp: 10
 --- !u!95 &1950763409
@@ -20015,6 +20018,24 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1950763410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1950763399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d45c044059c70474a974b1207d220395, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.AbilityAnimationDriver
+  animator: {fileID: 1950763409}
+  abilities:
+  - SkillId: 
+    Triggers: []
+  fallbackTrigger: Attack
+  variantMode: 0
 --- !u!1 &1965195878
 GameObject:
   m_ObjectHideFlags: 0

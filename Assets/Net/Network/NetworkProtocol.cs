@@ -120,6 +120,8 @@ namespace DVBARPG.Net.Network
     public sealed class MonsterSnapshot
     {
         public System.Guid Id { get; set; }
+        public string Type { get; set; } = "";
+        public string State { get; set; } = "";
         public float X { get; set; }
         public float Y { get; set; }
         public int Hp { get; set; }

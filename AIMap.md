@@ -13,6 +13,7 @@
 - `Assets/Data/ClassData.cs` — ScriptableObject с данными класса (используется в выборе класса).
 
 ## Assets/Game/Animation
+- `Assets/Game/Animation/AbilityAnimationDriver.cs` — привязка SkillId -> набор Trigger (вариативные анимации способностей).
 - `Assets/Game/Animation/MovementAnimator.cs` — переключает анимации движения на объекте.
 
 ## Assets/Game/Camera

@@ -11,8 +11,14 @@ namespace DVBARPG.Game.Animation
         [SerializeField] private Animator animator;
 
         [Header("Параметры")]
-        [Tooltip("Порог для IsMoving (0 = сразу выключать).")]
-        [SerializeField] private float movingThreshold = 0.0f;
+        [Tooltip("Порог включения IsMoving.")]
+        [SerializeField] private float movingOnThreshold = 0.15f;
+        [Tooltip("Порог выключения IsMoving (должен быть меньше порога включения).")]
+        [SerializeField] private float movingOffThreshold = 0.05f;
+        [Tooltip("Сглаживание скорости (сек).")]
+        [SerializeField] private float speedSmoothingTime = 0.1f;
+        [Tooltip("Мгновенно выключать IsMoving при нулевом смещении.")]
+        [SerializeField] private bool instantStop = true;
         [Header("Поворот")]
         [Tooltip("Поворачивать объект по направлению движения.")]
         [SerializeField] private bool rotateToMovement = false;
@@ -20,12 +26,23 @@ namespace DVBARPG.Game.Animation
         [SerializeField] private float rotationLerp = 10f;
 
         private Vector3 _lastPos;
+        private float _smoothedSpeed;
+        private bool _isMoving;
 
         private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+        private static readonly int AttackHash = Animator.StringToHash("Attack");
+        private static readonly int AttackRangedHash = Animator.StringToHash("AttackRanged");
+
+        public void TriggerAttack(bool ranged)
+        {
+            if (animator == null) return;
+            animator.SetTrigger(ranged ? AttackRangedHash : AttackHash);
+        }
 
         private void Awake()
         {
             if (animator == null) animator = GetComponent<Animator>();
+            if (animator == null) animator = GetComponentInChildren<Animator>();
             _lastPos = transform.position;
         }
 
@@ -37,11 +54,36 @@ namespace DVBARPG.Game.Animation
                 var delta = pos - _lastPos;
                 _lastPos = pos;
 
+            if (instantStop && delta.sqrMagnitude < 0.0000001f)
+            {
+                _smoothedSpeed = 0f;
+                _isMoving = false;
+                animator.SetBool(IsMovingHash, _isMoving);
+            }
+            else
+            {
             var speedNow = delta.magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
-            var isMoving = speedNow > movingThreshold;
+            var alpha = 1f - Mathf.Exp(-Mathf.Max(Time.deltaTime, 0.0001f) / Mathf.Max(speedSmoothingTime, 0.001f));
+            _smoothedSpeed = Mathf.Lerp(_smoothedSpeed, speedNow, alpha);
+
+            if (_isMoving)
+            {
+                if (_smoothedSpeed <= movingOffThreshold)
+                {
+                    _isMoving = false;
+                }
+            }
+            else
+            {
+                if (_smoothedSpeed >= movingOnThreshold)
+                {
+                    _isMoving = true;
+                }
+            }
 
             // Только флаг движения, без параметра скорости.
-            animator.SetBool(IsMovingHash, isMoving);
+            animator.SetBool(IsMovingHash, _isMoving);
+            }
 
                 if (rotateToMovement && delta.sqrMagnitude > 0.0001f)
                 {

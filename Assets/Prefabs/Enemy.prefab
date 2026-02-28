@@ -416,6 +416,7 @@ GameObject:
   - component: {fileID: 5156514006918746520}
   - component: {fileID: 6789229801153058927}
   - component: {fileID: 4574795226786614627}
+  - component: {fileID: 1621277379767269763}
   m_Layer: 6
   m_Name: Enemy
   m_TagString: Untagged
@@ -476,9 +477,40 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.MovementAnimator
   animator: {fileID: 6789229801153058927}
-  movingThreshold: 0.05
+  movingOnThreshold: 0.15
+  movingOffThreshold: 0.05
+  speedSmoothingTime: 0.1
+  instantStop: 1
   rotateToMovement: 1
   rotationLerp: 14
+--- !u!114 &1621277379767269763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 882118578900002824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d45c044059c70474a974b1207d220395, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.AbilityAnimationDriver
+  animator: {fileID: 6789229801153058927}
+  abilities:
+  - SkillId: humanoid_melee
+    Triggers:
+    - Melee_A
+    - Melee_B
+  - SkillId: humanoid_ranged
+    Triggers:
+    - Ranged
+  fallbackTrigger: 
+  variantMode: 1
+  controlAttackLayerWeight: 1
+  attackLayerName: AttackHumanoid
+  attackLayerWeight: 1
+  attackHoldTime: 0
+  layerFadeSpeed: 6
 --- !u!1 &1025841976342527086
 GameObject:
   m_ObjectHideFlags: 0

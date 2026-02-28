@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using UnityEngine;
 using DVBARPG.Game.World;
+using DVBARPG.Game.Animation;
 using DVBARPG.Tools;
 namespace DVBARPG.Game.Network
 {
@@ -14,12 +15,16 @@ namespace DVBARPG.Game.Network
         [Tooltip("Префаб монстра для отображения.")]
         [SerializeField] private Transform monsterPrefab;
         [Tooltip("Задержка интерполяции (мс).")]
-        [SerializeField] private float interpolationDelayMs = 100f;
+        [SerializeField] private float interpolationDelayMs = 180f;
         [Tooltip("Макс. время экстраполяции (мс) при потере снапшотов.")]
         [SerializeField] private float maxExtrapolationMs = 120f;
+        [Tooltip("Сглаживание позиции (0 = выключено).")]
+        [SerializeField] private float positionSmoothing = 12f;
 
         private NetworkSessionRunner _net;
         private readonly Dictionary<Guid, Transform> _monsters = new();
+        private readonly Dictionary<Guid, string> _monsterType = new();
+        private readonly Dictionary<Guid, string> _monsterState = new();
         private readonly HashSet<Guid> _seen = new();
         private readonly List<Guid> _toDisable = new();
 
@@ -69,7 +74,7 @@ namespace DVBARPG.Game.Network
                         Registry[m.Id] = tr;
                     }
 
-                    var fromPos = GetMonsterPos(from, m.Id);
+                    var hasFrom = TryGetMonsterPos(from, m.Id, out var fromPos);
                     var toPos = new Vector3(m.X, 0f, m.Y);
 
                     if (renderTime <= to.ServerTimeMs)
@@ -81,19 +86,28 @@ namespace DVBARPG.Game.Network
                             t = Mathf.Clamp01((float)((renderTime - from.ServerTimeMs) / dt));
                         }
 
-                        var pos = Vector3.Lerp(fromPos, toPos, t);
+                        var pos = hasFrom ? Vector3.Lerp(fromPos, toPos, t) : toPos;
                         pos.y = SampleHeight(pos);
-                        tr.position = pos;
+                        tr.position = ApplySmoothing(tr.position, pos);
                     }
                     else
                     {
                         var extraMs = Mathf.Min((float)(renderTime - to.ServerTimeMs), maxExtrapolationMs);
                         var vel = EstimateMonsterVelocity(m.Id);
-                        var pos = toPos + vel * (extraMs / 1000f);
+                        var pos = vel.sqrMagnitude > 0.0001f ? toPos + vel * (extraMs / 1000f) : toPos;
                         pos.y = SampleHeight(pos);
-                        tr.position = pos;
+                        tr.position = ApplySmoothing(tr.position, pos);
                     }
                     if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
+
+                    _monsterType[m.Id] = m.Type;
+                    _monsterState[m.Id] = m.State;
+
+                    var ability = tr.GetComponent<AbilityAnimationDriver>();
+                    if (ability != null)
+                    {
+                        ability.ApplyNetworkState(m.State, m.Type);
+                    }
                 }
 
                 _toDisable.Clear();
@@ -110,20 +124,24 @@ namespace DVBARPG.Game.Network
                 {
                     Registry.Remove(id);
                     _monsters.Remove(id);
+                    _monsterType.Remove(id);
+                    _monsterState.Remove(id);
                 }
             }
         }
 
-        private static Vector3 GetMonsterPos(SnapshotEnvelope snap, Guid id)
+        private static bool TryGetMonsterPos(SnapshotEnvelope snap, Guid id, out Vector3 pos)
         {
             for (int i = 0; i < snap.Monsters.Length; i++)
             {
                 if (snap.Monsters[i].Id == id)
                 {
-                    return new Vector3(snap.Monsters[i].X, 0f, snap.Monsters[i].Y);
+                    pos = new Vector3(snap.Monsters[i].X, 0f, snap.Monsters[i].Y);
+                    return true;
                 }
             }
-            return Vector3.zero;
+            pos = Vector3.zero;
+            return false;
         }
 
         private Vector3 EstimateMonsterVelocity(Guid id)
@@ -131,8 +149,8 @@ namespace DVBARPG.Game.Network
             if (_net == null) return Vector3.zero;
             if (!_net.TryGetLastTwoSnapshots(out var prev, out var last)) return Vector3.zero;
 
-            var lastPos = GetMonsterPos(last, id);
-            var prevPos = GetMonsterPos(prev, id);
+            if (!TryGetMonsterPos(last, id, out var lastPos)) return Vector3.zero;
+            if (!TryGetMonsterPos(prev, id, out var prevPos)) return Vector3.zero;
             var dtMs = last.ServerTimeMs - prev.ServerTimeMs;
             if (dtMs <= 0) return Vector3.zero;
 
@@ -142,6 +160,13 @@ namespace DVBARPG.Game.Network
         private float SampleHeight(Vector3 worldPos)
         {
             return UnifiedHeightSampler.SampleHeight(worldPos);
+        }
+
+        private Vector3 ApplySmoothing(Vector3 current, Vector3 target)
+        {
+            if (positionSmoothing <= 0f) return target;
+            var alpha = 1f - Mathf.Exp(-positionSmoothing * Time.deltaTime);
+            return Vector3.Lerp(current, target, alpha);
         }
 
         public static bool TryGetTransform(Guid id, out Transform tr)
