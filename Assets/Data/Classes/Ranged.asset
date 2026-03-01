@@ -25,3 +25,6 @@ MonoBehaviour:
   Skill1Name: Quick Shot
   Skill2Name: Volley
   Skill3Name: Roll
+  Skill1Id: unarmed_strike
+  Skill2Id: fireball
+  Skill3Id: ice_nova

@@ -45,5 +45,13 @@ namespace DVBARPG.Data
         public string Skill2Name;
         [Tooltip("Название умения 3.")]
         public string Skill3Name;
+
+        [Header("SkillId (сервер)")]
+        [Tooltip("SkillId для слота атаки (серверный).")]
+        public string Skill1Id;
+        [Tooltip("SkillId для поддержки A (серверный).")]
+        public string Skill2Id;
+        [Tooltip("SkillId для поддержки B (серверный).")]
+        public string Skill3Id;
     }
 }

@@ -416,7 +416,7 @@ GameObject:
   - component: {fileID: 5156514006918746520}
   - component: {fileID: 6789229801153058927}
   - component: {fileID: 4574795226786614627}
-  - component: {fileID: 1621277379767269763}
+  - component: {fileID: 2379176899371095962}
   m_Layer: 6
   m_Name: Enemy
   m_TagString: Untagged
@@ -434,7 +434,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.774004, y: 1.833118, z: 1.7315744}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3852813294285000031}
@@ -483,7 +483,7 @@ MonoBehaviour:
   instantStop: 1
   rotateToMovement: 1
   rotationLerp: 14
---- !u!114 &1621277379767269763
+--- !u!114 &2379176899371095962
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -492,25 +492,32 @@ MonoBehaviour:
   m_GameObject: {fileID: 882118578900002824}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d45c044059c70474a974b1207d220395, type: 3}
+  m_Script: {fileID: 11500000, guid: 2a1d1ad90a62559439bbab69701e4519, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.AbilityAnimationDriver
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.MonsterAnimationDriver
   animator: {fileID: 6789229801153058927}
-  abilities:
-  - SkillId: humanoid_melee
-    Triggers:
-    - Melee_A
-    - Melee_B
-  - SkillId: humanoid_ranged
-    Triggers:
-    - Ranged
-  fallbackTrigger: 
+  meleeTriggers:
+  - MeleeHumanoidA
+  rangedTriggers:
+  - RangedHumanoidProjectile
+  fallbackTrigger: Attack
   variantMode: 1
   controlAttackLayerWeight: 1
-  attackLayerName: AttackHumanoid
+  attackLayerName: AttackMobs
   attackLayerWeight: 1
-  attackHoldTime: 0
   layerFadeSpeed: 6
+  attackStateName: attack
+  attackSpeedParam: MonsterAttackSpeed
+  autoDetectAnimLength: 1
+  defaultMeleeCooldown: 1.2
+  defaultRangedCooldown: 1.4
+  meleeAttackAnimSec: 0.6
+  rangedAttackAnimSec: 0.7
+  minAttackSpeed: 0.5
+  maxAttackSpeed: 2
+  minRetriggerSec: 0.05
+  rotateToPlayerOnAttack: 1
+  rotationLerp: 12
 --- !u!1 &1025841976342527086
 GameObject:
   m_ObjectHideFlags: 0

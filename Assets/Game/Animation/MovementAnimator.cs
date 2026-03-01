@@ -28,6 +28,7 @@ namespace DVBARPG.Game.Animation
         private Vector3 _lastPos;
         private float _smoothedSpeed;
         private bool _isMoving;
+        private bool _rotationLocked;
 
         private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
         private static readonly int AttackHash = Animator.StringToHash("Attack");
@@ -37,6 +38,16 @@ namespace DVBARPG.Game.Animation
         {
             if (animator == null) return;
             animator.SetTrigger(ranged ? AttackRangedHash : AttackHash);
+        }
+
+        public void SetRotationLocked(bool locked)
+        {
+            _rotationLocked = locked;
+        }
+
+        public void SetRotateToMovement(bool enabled)
+        {
+            rotateToMovement = enabled;
         }
 
         private void Awake()
@@ -85,12 +96,16 @@ namespace DVBARPG.Game.Animation
             animator.SetBool(IsMovingHash, _isMoving);
             }
 
-                if (rotateToMovement && delta.sqrMagnitude > 0.0001f)
+                if (rotateToMovement && !_rotationLocked && delta.sqrMagnitude > 0.0001f)
                 {
                     // Поворачиваем объект в сторону фактического движения.
-                    var dir = new Vector3(delta.x, 0f, delta.z).normalized;
-                    var targetRot = Quaternion.LookRotation(dir, Vector3.up);
-                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationLerp * Time.deltaTime);
+                    var dir = new Vector3(delta.x, 0f, delta.z);
+                    if (dir.sqrMagnitude > 0.000001f)
+                    {
+                        dir.Normalize();
+                        var targetRot = Quaternion.LookRotation(dir, Vector3.up);
+                        transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationLerp * Time.deltaTime);
+                    }
                 }
             }
         }

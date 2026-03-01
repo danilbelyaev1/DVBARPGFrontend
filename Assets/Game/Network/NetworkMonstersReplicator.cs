@@ -23,8 +23,6 @@ namespace DVBARPG.Game.Network
 
         private NetworkSessionRunner _net;
         private readonly Dictionary<Guid, Transform> _monsters = new();
-        private readonly Dictionary<Guid, string> _monsterType = new();
-        private readonly Dictionary<Guid, string> _monsterState = new();
         private readonly HashSet<Guid> _seen = new();
         private readonly List<Guid> _toDisable = new();
 
@@ -32,23 +30,10 @@ namespace DVBARPG.Game.Network
         {
             var session = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.ISessionService>();
             _net = session as NetworkSessionRunner;
-            if (_net != null)
-            {
-                _net.Snapshot += OnSnapshot;
-            }
         }
 
         private void OnDisable()
         {
-            if (_net != null)
-            {
-                _net.Snapshot -= OnSnapshot;
-            }
-        }
-
-        private void OnSnapshot(SnapshotEnvelope snap)
-        {
-            if (monsterPrefab == null) return;
         }
 
         private void Update()
@@ -100,13 +85,10 @@ namespace DVBARPG.Game.Network
                     }
                     if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
 
-                    _monsterType[m.Id] = m.Type;
-                    _monsterState[m.Id] = m.State;
-
-                    var ability = tr.GetComponent<AbilityAnimationDriver>();
-                    if (ability != null)
+                    var monsterAnim = tr.GetComponent<MonsterAnimationDriver>();
+                    if (monsterAnim != null)
                     {
-                        ability.ApplyNetworkState(m.State, m.Type);
+                        monsterAnim.ApplyNetworkState(m.State, m.Type, to.ServerTimeMs);
                     }
                 }
 
@@ -124,8 +106,6 @@ namespace DVBARPG.Game.Network
                 {
                     Registry.Remove(id);
                     _monsters.Remove(id);
-                    _monsterType.Remove(id);
-                    _monsterState.Remove(id);
                 }
             }
         }

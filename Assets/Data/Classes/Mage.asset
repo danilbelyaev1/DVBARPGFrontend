@@ -25,3 +25,6 @@ MonoBehaviour:
   Skill1Name: Firebolt
   Skill2Name: Ice Nova
   Skill3Name: Blink
+  Skill1Id: unarmed_strike
+  Skill2Id: fireball
+  Skill3Id: ice_nova

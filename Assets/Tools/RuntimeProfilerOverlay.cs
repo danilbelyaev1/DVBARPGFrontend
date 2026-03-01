@@ -91,10 +91,12 @@ namespace DVBARPG.Tools
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Spawn()
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             var go = new GameObject("RuntimeProfilerOverlay");
             DontDestroyOnLoad(go);
             go.hideFlags = HideFlags.DontSave;
             go.AddComponent<RuntimeProfilerOverlay>();
+#endif
         }
 
         private void Update()

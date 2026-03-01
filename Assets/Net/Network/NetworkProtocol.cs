@@ -29,6 +29,8 @@ namespace DVBARPG.Net.Network
         public float? X { get; set; }
         public float? Y { get; set; }
         public string? SkillId { get; set; }
+        public string? Slot { get; set; }
+        public bool? Enabled { get; set; }
         public string? Token { get; set; }
         public System.Guid? CharacterId { get; set; }
         public System.Guid? SeasonId { get; set; }
@@ -115,6 +117,12 @@ namespace DVBARPG.Net.Network
         public float Y { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
+        public bool AttackEnabled { get; set; }
+        public bool SupportAEnabled { get; set; }
+        public bool SupportBEnabled { get; set; }
+        public bool MovementActive { get; set; }
+        public string? MovementSkillId { get; set; }
+        public bool AttackAnimTriggered { get; set; }
     }
 
     public sealed class MonsterSnapshot
@@ -131,6 +139,8 @@ namespace DVBARPG.Net.Network
     public sealed class ProjectileSnapshot
     {
         public System.Guid Id { get; set; }
+        public System.Guid OwnerId { get; set; }
+        public long SpawnTimeMs { get; set; }
         public float X { get; set; }
         public float Y { get; set; }
         public float Radius { get; set; }

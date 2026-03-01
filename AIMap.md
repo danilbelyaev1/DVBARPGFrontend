@@ -3,6 +3,11 @@
 Карта **только скриптов** в клиентской части.  
 Без ассетов, анимаций, сцен и серверного кода.
 
+## Документация
+- `AGENTS.md` — правила работы и ограничения по изменениям.
+- `AIConcept.md` — концепция игры, боёвка и управление.
+- `README.md` — краткое описание проекта.
+
 ## Assets/Core
 - `Assets/Core/GameRoot.cs` — корневой синглтон, регистрирует сервисы и запускает систему.
 - `Assets/Core/Services/AuthSession.cs` — модель авторизационной сессии.
@@ -13,16 +18,22 @@
 - `Assets/Data/ClassData.cs` — ScriptableObject с данными класса (используется в выборе класса).
 
 ## Assets/Game/Animation
-- `Assets/Game/Animation/AbilityAnimationDriver.cs` — привязка SkillId -> набор Trigger (вариативные анимации способностей).
+- `Assets/Game/Animation/PlayerAbilityAnimationDriver.cs` — анимации способностей игрока (SkillId -> Trigger).
+- `Assets/Game/Animation/MonsterAnimationDriver.cs` — анимации атак монстров (melee/ranged).
 - `Assets/Game/Animation/MovementAnimator.cs` — переключает анимации движения на объекте.
 
 ## Assets/Game/Camera
 - `Assets/Game/Camera/TopDownFollowCamera.cs` — верхняя камера с зумом и следованием.
 
+## Assets/Game/Combat
+- `Assets/Game/Combat/CombatSlots.cs` — константы слотов боя (attack/supportA/supportB).
+
 ## Assets/Game/Dev
 - `Assets/Game/Dev/DevRunBootstrap.cs` — dev-старт забега из Run.
 
 ## Assets/Game/Network
+- `Assets/Game/Network/MonsterCatalogClient.cs` — загрузка базовых статов монстров по HTTP (runtime/laravel).
+- `Assets/Game/Network/MonsterCatalogBootstrap.cs` — автозапуск загрузки статов монстров в сцене Run.
 - `Assets/Game/Network/FloatingDamageText.cs` — визуализация всплывающего урона.
 - `Assets/Game/Network/NetworkDamageFromSnapshots.cs` — вывод урона по снапшотам.
 - `Assets/Game/Network/NetworkMonstersReplicator.cs` — репликация монстров из снапшотов.
@@ -31,6 +42,7 @@
 - `Assets/Game/Network/NetworkRunConnector.cs` — соединение с сервером из Run.
 
 ## Assets/Game/Player
+- `Assets/Game/Player/AutoSkillToggleController.cs` — переключение авто-использования слотов и отправка на сервер.
 - `Assets/Game/Player/JoystickInput.cs` — виртуальный джойстик.
 - `Assets/Game/Player/NetworkPlayerReplicator.cs` — репликация/предсказание игрока.
 - `Assets/Game/Player/PlayerInputController.cs` — ввод (WASD/мышь/джойстик) и отправка в сеть.
@@ -42,6 +54,7 @@
 - `Assets/Net/Commands/IClientCommand.cs` — базовый интерфейс команды клиента.
 - `Assets/Net/Commands/CmdMove.cs` — команда движения.
 - `Assets/Net/Commands/CmdStop.cs` — команда остановки.
+- `Assets/Net/Commands/CmdSlotToggle.cs` — команда включения/выключения слота.
 - `Assets/Net/Commands/CmdDebug.cs` — debug-команды для dev режима.
 
 ## Assets/Net/Local
@@ -58,12 +71,13 @@
 - `Assets/Net/Network/NetworkProtocol.cs` — модели сетевого протокола.
 - `Assets/Net/Network/NetworkSessionRunner.cs` — UDP транспорт + буфер снапшотов.
 
-## Assets/Tools (Editor)
-- `Assets/Tools/IslandObstacleGenerator.cs` — генерация ObstacleMesh и экспортных боксов.
-- `Assets/Tools/RuntimeMapExporter.cs` — экспорт карты в JSON для сервера.
+## Assets/Tools/Editor
+- `Assets/Tools/Editor/IslandObstacleGenerator.cs` — генерация ObstacleMesh и экспортных боксов.
+- `Assets/Tools/Editor/RuntimeMapExporter.cs` — экспорт карты в JSON для сервера.
 
 ## Assets/UI
 - `Assets/UI/CharacterSelect/CharacterSelectScreen.cs` — логика UI выбора класса.
 - `Assets/UI/CharacterSelect/SelectedClassDebugLabel.cs` — debug-лейбл выбранного класса.
 - `Assets/UI/Dev/DevCommandsPanel.cs` — dev панель команд.
 - `Assets/UI/Login/LoginScreen.cs` — логика кнопки Login.
+- `Assets/UI/Run/AutoSkillTogglePanel.cs` — UI панель включения/выключения авто-скиллов.
