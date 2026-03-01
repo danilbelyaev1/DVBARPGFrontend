@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using DVBARPG.Game.World;
+using DVBARPG.Game.Animation;
 using UnityEngine;
 using DVBARPG.Tools;
 
@@ -63,7 +64,6 @@ namespace DVBARPG.Game.Network
                     _projectiles[p.Id] = tr;
                     _projectileBaseDiameters[p.Id] = ComputePrefabBaseDiameter(tr);
                 }
-
                 var hasFrom = TryGetProjectilePos(from, p.Id, out var fromPos);
                 var toPos = new Vector3(p.X, 0f, p.Y);
 
@@ -201,5 +201,6 @@ namespace DVBARPG.Game.Network
 
             return heightOffset;
         }
+
     }
 }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace DVBARPG.Game.Animation
 {
-    public sealed class AbilityAnimationDriver : MonoBehaviour
+    public sealed class PlayerAbilityAnimationDriver : MonoBehaviour
     {
         public enum VariantMode
         {
@@ -24,7 +24,7 @@ namespace DVBARPG.Game.Animation
         [Tooltip("Animator на этом объекте.")]
         [SerializeField] private Animator animator;
 
-        [Header("Способности")]
+        [Header("Способности игрока")]
         [Tooltip("Сопоставление SkillId -> Trigger.")]
         [SerializeField] private List<AbilityEntry> abilities = new();
         [Tooltip("Триггер по умолчанию, если SkillId не найден.")]
@@ -43,22 +43,12 @@ namespace DVBARPG.Game.Animation
         [Tooltip("Скорость возврата веса слоя к 0.")]
         [SerializeField] private float layerFadeSpeed = 6f;
 
-        [Header("Сетевое состояние")]
-        [Tooltip("Какое состояние считается атакой (из снапшота).")]
-        [SerializeField] private string attackStateName = "attack";
-        [Tooltip("SkillId для ближней атаки по умолчанию.")]
-        [SerializeField] private string meleeSkillId = "humanoid_melee";
-        [Tooltip("SkillId для дальней атаки по умолчанию.")]
-        [SerializeField] private string rangedSkillId = "humanoid_ranged";
-
         private readonly Dictionary<string, int[]> _map = new();
         private readonly Dictionary<string, int> _rrIndex = new();
         private readonly HashSet<int> _attackStateHashes = new();
         private int _fallbackHash;
         private int _attackLayerIndex = -1;
         private bool _attackLayerReady;
-        private float _lastAttackTime;
-        private string _lastState = "";
 
         private void Awake()
         {
@@ -128,31 +118,13 @@ namespace DVBARPG.Game.Animation
         public void ForceAttackLayerWeight()
         {
             if (!controlAttackLayerWeight || animator == null || !_attackLayerReady) return;
-            _lastAttackTime = Time.time;
             animator.SetLayerWeight(_attackLayerIndex, attackLayerWeight);
-        }
-
-        public void ApplyNetworkState(string state, string type)
-        {
-            if (string.IsNullOrWhiteSpace(state)) return;
-            if (string.Equals(state, _lastState, System.StringComparison.OrdinalIgnoreCase)) return;
-
-            if (string.Equals(state, attackStateName, System.StringComparison.OrdinalIgnoreCase))
-            {
-                var isRanged = string.Equals(type, "ranged", System.StringComparison.OrdinalIgnoreCase);
-                var skillId = isRanged ? rangedSkillId : meleeSkillId;
-                ForceAttackLayerWeight();
-                PlaySkill(skillId);
-            }
-
-            _lastState = state;
         }
 
         private void Update()
         {
             if (!controlAttackLayerWeight || animator == null || !_attackLayerReady) return;
 
-            // Держим вес, пока активен атакующий стейт на слое.
             var state = animator.GetCurrentAnimatorStateInfo(_attackLayerIndex);
             var inAttackState = _attackStateHashes.Contains(state.shortNameHash);
             if (!inAttackState && !animator.IsInTransition(_attackLayerIndex))

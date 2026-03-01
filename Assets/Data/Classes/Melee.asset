@@ -25,3 +25,6 @@ MonoBehaviour:
   Skill1Name: Cleave
   Skill2Name: Leap Strike
   Skill3Name: War Cry
+  Skill1Id: unarmed_strike
+  Skill2Id: fireball
+  Skill3Id: ice_nova

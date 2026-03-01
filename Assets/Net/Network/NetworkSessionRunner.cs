@@ -18,7 +18,6 @@ namespace DVBARPG.Net.Network
     {
         public bool IsConnected { get; private set; }
         public event Action<SnapshotEnvelope> Snapshot;
-        public event Action BufferUpdated;
         public event Action<int, Vector2, float> MoveSent;
 
         [Header("Отладка UDP")]
@@ -38,7 +37,7 @@ namespace DVBARPG.Net.Network
         private int _lastAckFromServer;
         private readonly ConcurrentDictionary<int, PendingPacket> _pending = new();
         private string _serverUrl = "udp://127.0.0.1:8081";
-        private float _lastMoveLog;
+        
         private bool _connectOk;
         private bool _instanceStarted;
         private readonly List<SnapshotEnvelope> _buffer = new();
@@ -64,7 +63,7 @@ namespace DVBARPG.Net.Network
             _udp = new UdpClient(0);
             _remoteEndPoint = ParseEndpoint(_serverUrl);
 
-            Debug.Log($"NetworkSessionRunner: UDP connect to {_remoteEndPoint}");
+            DebugLog($"NetworkSessionRunner: UDP connect to {_remoteEndPoint}");
 
             _recvTask = Task.Run(async () => await ReceiveLoopAsync(_cts.Token));
             _resendTask = Task.Run(async () => await ResendLoopAsync(_cts.Token));
@@ -105,11 +104,6 @@ namespace DVBARPG.Net.Network
 
             if (command is CmdMove move)
             {
-                if (Time.unscaledTime - _lastMoveLog > 1f)
-                {
-                    Debug.Log($"NetworkSessionRunner: send move ({move.Direction.x:0.00},{move.Direction.z:0.00})");
-                    _lastMoveLog = Time.unscaledTime;
-                }
                 var seq = NextSeq();
                 MoveSent?.Invoke(seq, new Vector2(move.Direction.x, move.Direction.z), move.DeltaTime);
                 SendUnreliable(new CommandEnvelope
@@ -119,6 +113,20 @@ namespace DVBARPG.Net.Network
                     ClientTimeMs = (long)(Time.unscaledTime * 1000f),
                     X = move.Direction.x,
                     Y = move.Direction.z
+                });
+                return;
+            }
+
+            if (command is CmdSlotToggle toggle)
+            {
+                var seq = NextSeq();
+                SendReliable(new CommandEnvelope
+                {
+                    Type = "slot_toggle",
+                    Seq = seq,
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f),
+                    Slot = toggle.Slot,
+                    Enabled = toggle.Enabled
                 });
                 return;
             }
@@ -154,7 +162,6 @@ namespace DVBARPG.Net.Network
                     }
                 }
 
-                    BufferUpdated?.Invoke();
                 }
             }
 
@@ -229,17 +236,40 @@ namespace DVBARPG.Net.Network
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"NetworkSessionRunner: recv failed {e.GetType().Name} {e.Message}");
+                    DebugLogWarning($"NetworkSessionRunner: recv failed {e.GetType().Name} {e.Message}");
                     continue;
                 }
 
                 var json = Encoding.UTF8.GetString(result.Buffer);
                 if (logUdpTraffic)
                 {
-                    Debug.Log($"UDP RECV: {json}");
+                    if (!IsIdleSnapshot(json) && !IsNetStats(json) && !IsEmptyMonstersSnapshot(json))
+                    {
+                        DebugLog($"UDP RECV: {json}");
+                    }
                 }
                 TryHandleMessage(json);
             }
+        }
+
+        private static bool IsIdleSnapshot(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return false;
+            if (!json.Contains("\"type\":\"snapshot\"")) return false;
+            return json.Contains("\"state\":\"idle\"");
+        }
+
+        private static bool IsNetStats(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return false;
+            return json.Contains("\"type\":\"net_stats\"");
+        }
+
+        private static bool IsEmptyMonstersSnapshot(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return false;
+            if (!json.Contains("\"type\":\"snapshot\"")) return false;
+            return json.Contains("\"monsters\":[]");
         }
 
         private void TryHandleMessage(string json)
@@ -285,7 +315,7 @@ namespace DVBARPG.Net.Network
                         var err = JsonConvert.DeserializeObject<ErrorEnvelope>(json, NetProtocol.JsonSettings);
                         if (err != null)
                         {
-                            Debug.LogWarning($"NetworkSessionRunner: server error {err.Code} {err.Message}");
+                            DebugLogWarning($"NetworkSessionRunner: server error {err.Code} {err.Message}");
                         }
                         break;
                     case "hello":
@@ -359,9 +389,9 @@ namespace DVBARPG.Net.Network
                 Retries = 0
             };
 
-            if (logUdpTraffic)
+            if (logUdpTraffic && cmd.Type != "move")
             {
-                Debug.Log($"UDP SEND: {json}");
+                DebugLog($"UDP SEND: {json}");
             }
             _ = _udp.SendAsync(bytes, bytes.Length, _remoteEndPoint);
         }
@@ -376,9 +406,9 @@ namespace DVBARPG.Net.Network
             var json = JsonConvert.SerializeObject(cmd, NetProtocol.JsonSettings);
             var bytes = Encoding.UTF8.GetBytes(json);
 
-            if (logUdpTraffic)
+            if (logUdpTraffic && cmd.Type != "move")
             {
-                Debug.Log($"UDP SEND: {json}");
+                DebugLog($"UDP SEND: {json}");
             }
             _ = _udp.SendAsync(bytes, bytes.Length, _remoteEndPoint);
         }
@@ -488,6 +518,20 @@ namespace DVBARPG.Net.Network
             catch
             {
             }
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void DebugLog(string message)
+        {
+            UnityEngine.Debug.Log(message);
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void DebugLogWarning(string message)
+        {
+            UnityEngine.Debug.LogWarning(message);
         }
     }
 
