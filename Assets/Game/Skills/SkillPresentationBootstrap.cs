@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using DVBARPG.Core.Services;
 using DVBARPG.Game.Network;
 using DVBARPG.Game.Skills;
+using DVBARPG.Game.Skills;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -193,6 +194,7 @@ namespace DVBARPG.Game.Skills.Presentation
 
             outSkillIds.Clear();
             SkillRangeCatalog.Clear();
+            SkillCastModeCatalog.Clear();
             for (int i = 0; i < response.Skills.Length; i++)
             {
                 var def = response.Skills[i];
@@ -200,6 +202,8 @@ namespace DVBARPG.Game.Skills.Presentation
                 if (string.IsNullOrWhiteSpace(id)) continue;
                 outSkillIds.Add(id);
                 SkillRangeCatalog.SetRange(id, def.Range);
+                var mode = !string.IsNullOrWhiteSpace(def.CastMode) ? def.CastMode : def.CastModeAlt;
+                SkillCastModeCatalog.SetCastMode(id, MapCastMode(mode));
             }
 
             if (logOnSuccess)
@@ -452,6 +456,16 @@ namespace DVBARPG.Game.Skills.Presentation
         {
             [JsonProperty("id")] public string Id { get; set; }
             [JsonProperty("range")] public float Range { get; set; }
+            [JsonProperty("castMode")] public string CastMode { get; set; }
+            [JsonProperty("cast_mode")] public string CastModeAlt { get; set; }
+        }
+
+        private static int MapCastMode(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return 2;
+            if (string.Equals(value, "stand_only", System.StringComparison.OrdinalIgnoreCase)) return 0;
+            if (string.Equals(value, "move_only", System.StringComparison.OrdinalIgnoreCase)) return 1;
+            return 2;
         }
 
         private sealed class CharacterGraphResponse

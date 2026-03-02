@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DVBARPG.Game.Skills;
 using UnityEngine;
 
 namespace DVBARPG.Game.Animation
@@ -32,23 +33,31 @@ namespace DVBARPG.Game.Animation
         [Tooltip("Режим выбора вариации анимации.")]
         [SerializeField] private VariantMode variantMode = VariantMode.Random;
 
-        [Header("Слой атак")]
-        [Tooltip("Управлять весом слоя атак вручную.")]
+        [Header("Слои атак")]
+        [Tooltip("Управлять весом слоёв атак вручную.")]
         [SerializeField] private bool controlAttackLayerWeight = true;
-        [Tooltip("Имя слоя атак в Animator.")]
-        [SerializeField] private string attackLayerName = "AttackHumanoid";
+        [Tooltip("Имена слоёв атак в Animator.")]
+        [SerializeField] private List<string> attackLayerNames = new() { "AttackStanding", "AttackMoving", "AttackAny" };
         [Tooltip("Вес слоя во время атаки.")]
         [Range(0f, 1f)]
         [SerializeField] private float attackLayerWeight = 1f;
         [Tooltip("Скорость возврата веса слоя к 0.")]
         [SerializeField] private float layerFadeSpeed = 6f;
 
+        [Header("Параметры скиллов")]
+        [Tooltip("Имя int-параметра CastMode.")]
+        [SerializeField] private string castModeParam = "CastMode";
+        [Tooltip("Имя trigger-параметра UseSkill.")]
+        [SerializeField] private string useSkillParam = "UseSkill";
+
         private readonly Dictionary<string, int[]> _map = new();
         private readonly Dictionary<string, int> _rrIndex = new();
         private readonly HashSet<int> _attackStateHashes = new();
         private int _fallbackHash;
-        private int _attackLayerIndex = -1;
-        private bool _attackLayerReady;
+        private readonly List<int> _attackLayerIndexes = new();
+        private readonly List<bool> _attackLayerReady = new();
+        private int _castModeHash;
+        private int _useSkillHash;
 
         private void Awake()
         {
@@ -57,13 +66,22 @@ namespace DVBARPG.Game.Animation
             _fallbackHash = Animator.StringToHash(fallbackTrigger);
             if (animator != null)
             {
-                _attackLayerIndex = animator.GetLayerIndex(attackLayerName);
-                _attackLayerReady = _attackLayerIndex >= 0;
-                if (_attackLayerReady && controlAttackLayerWeight)
+                _attackLayerIndexes.Clear();
+                _attackLayerReady.Clear();
+                for (int i = 0; i < attackLayerNames.Count; i++)
                 {
-                    animator.SetLayerWeight(_attackLayerIndex, 0f);
+                    var idx = animator.GetLayerIndex(attackLayerNames[i]);
+                    _attackLayerIndexes.Add(idx);
+                    _attackLayerReady.Add(idx >= 0);
+                    if (idx >= 0 && controlAttackLayerWeight)
+                    {
+                        animator.SetLayerWeight(idx, 0f);
+                    }
                 }
             }
+
+            _castModeHash = Animator.StringToHash(castModeParam);
+            _useSkillHash = Animator.StringToHash(useSkillParam);
 
             _map.Clear();
             _attackStateHashes.Clear();
@@ -100,6 +118,10 @@ namespace DVBARPG.Game.Animation
         public void PlaySkill(string skillId)
         {
             if (animator == null) return;
+            var castMode = 2;
+            SkillCastModeCatalog.TryGetCastMode(skillId, out castMode);
+            animator.SetInteger(_castModeHash, castMode);
+            animator.SetTrigger(_useSkillHash);
             if (!string.IsNullOrWhiteSpace(skillId) && _map.TryGetValue(skillId, out var hashes))
             {
                 var hash = PickVariant(skillId, hashes);
@@ -126,23 +148,32 @@ namespace DVBARPG.Game.Animation
 
         public void ForceAttackLayerWeight()
         {
-            if (!controlAttackLayerWeight || animator == null || !_attackLayerReady) return;
-            animator.SetLayerWeight(_attackLayerIndex, attackLayerWeight);
+            if (!controlAttackLayerWeight || animator == null) return;
+            for (int i = 0; i < _attackLayerIndexes.Count; i++)
+            {
+                if (!_attackLayerReady[i]) continue;
+                animator.SetLayerWeight(_attackLayerIndexes[i], attackLayerWeight);
+            }
         }
 
         private void Update()
         {
-            if (!controlAttackLayerWeight || animator == null || !_attackLayerReady) return;
+            if (!controlAttackLayerWeight || animator == null) return;
 
-            var state = animator.GetCurrentAnimatorStateInfo(_attackLayerIndex);
-            var inAttackState = _attackStateHashes.Contains(state.shortNameHash);
-            if (!inAttackState && !animator.IsInTransition(_attackLayerIndex))
+            for (int i = 0; i < _attackLayerIndexes.Count; i++)
             {
-                var w = animator.GetLayerWeight(_attackLayerIndex);
-                if (w > 0f)
+                if (!_attackLayerReady[i]) continue;
+                var idx = _attackLayerIndexes[i];
+                var state = animator.GetCurrentAnimatorStateInfo(idx);
+                var inAttackState = _attackStateHashes.Contains(state.shortNameHash);
+                if (!inAttackState && !animator.IsInTransition(idx))
                 {
-                    var next = Mathf.MoveTowards(w, 0f, layerFadeSpeed * Time.deltaTime);
-                    animator.SetLayerWeight(_attackLayerIndex, next);
+                    var w = animator.GetLayerWeight(idx);
+                    if (w > 0f)
+                    {
+                        var next = Mathf.MoveTowards(w, 0f, layerFadeSpeed * Time.deltaTime);
+                        animator.SetLayerWeight(idx, next);
+                    }
                 }
             }
         }

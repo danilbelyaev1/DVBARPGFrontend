@@ -54,6 +54,11 @@ namespace DVBARPG.Game.Skills.Presentation
 
         private void OnEnable()
         {
+            if (animationDriver == null)
+            {
+                animationDriver = GetComponent<PlayerAbilityAnimationDriver>();
+                if (animationDriver == null) animationDriver = GetComponentInChildren<PlayerAbilityAnimationDriver>();
+            }
             var session = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.ISessionService>();
             _net = session as NetworkSessionRunner;
             if (_net != null)
@@ -121,6 +126,9 @@ namespace DVBARPG.Game.Skills.Presentation
 
             if (preferPresentationTrigger && !string.IsNullOrWhiteSpace(presentation.AnimationTrigger))
             {
+                // Всегда дергаем PlaySkill, чтобы выставить CastMode/UseSkill и поднять веса слоев.
+                animationDriver.PlaySkill(skillId);
+                // Дополнительно дергаем конкретный триггер, если он задан.
                 animationDriver.PlayTrigger(presentation.AnimationTrigger);
                 return;
             }

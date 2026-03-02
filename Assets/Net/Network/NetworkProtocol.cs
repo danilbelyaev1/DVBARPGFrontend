@@ -1,5 +1,7 @@
 using Newtonsoft.Json;
+using System.Collections.Generic;
 using Newtonsoft.Json.Serialization;
+using Newtonsoft.Json.Linq;
 
 namespace DVBARPG.Net.Network
 {
@@ -35,6 +37,28 @@ namespace DVBARPG.Net.Network
         public System.Guid? CharacterId { get; set; }
         public System.Guid? SeasonId { get; set; }
         public string MapId { get; set; }
+        public Dictionary<string, float> StatPatch { get; set; }
+        public List<SkillInstance> Skills { get; set; }
+        public CombatLoadout CombatLoadout { get; set; }
+        public bool? ReplaceSkills { get; set; }
+    }
+
+    public sealed class SkillInstance
+    {
+        public string SkillId { get; set; }
+        public int Level { get; set; }
+        public JToken Modifiers { get; set; }
+    }
+
+    public sealed class CombatLoadout
+    {
+        public string AttackSkillId { get; set; }
+        public string SupportASkillId { get; set; }
+        public string SupportBSkillId { get; set; }
+        public bool? AttackEnabled { get; set; }
+        public bool? SupportAEnabled { get; set; }
+        public bool? SupportBEnabled { get; set; }
+        public string MovementSlot { get; set; }
     }
 
     public sealed class HelloEnvelope

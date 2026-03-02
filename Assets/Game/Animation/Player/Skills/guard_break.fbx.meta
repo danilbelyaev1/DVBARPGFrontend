@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 1e6db2973b54db246903d9c76bca58eb
+guid: 634c98cb33b936f4393bd068a41f24cd
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -42,7 +42,7 @@ ModelImporter:
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 1
+      loopTime: 0
       loopBlend: 0
       loopBlendOrientation: 0
       loopBlendPositionY: 0
@@ -553,13 +553,13 @@ ModelImporter:
         length: 0
         modified: 0
     skeleton:
-    - name: slash(Clone)
+    - name: guard_break(Clone)
       parentName: 
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: mixamorig:Hips
-      parentName: slash(Clone)
+      parentName: guard_break(Clone)
       position: {x: -0.00081655756, y: 0.9323275, z: 0.017503768}
       rotation: {x: -0.17687367, y: -0.07926132, z: -0.013819787, w: 0.98093957}
       scale: {x: 1, y: 1, z: 1}
