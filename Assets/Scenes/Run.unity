@@ -729,13 +729,11 @@ RectTransform:
   - {fileID: 972410846}
   - {fileID: 874633211}
   - {fileID: 1581124240}
-  - {fileID: 2000000001}
-  - {fileID: 2000000021}
   m_Father: {fileID: 1371673038}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -224, y: -159}
   m_SizeDelta: {x: 420, y: 260}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &162222068
@@ -5628,14 +5626,14 @@ MonoBehaviour:
   clearMobsButton: {fileID: 1446635921}
   spawnMeleeButton: {fileID: 1487088888}
   spawnRangedButton: {fileID: 972410847}
-  spawnDummyButton: {fileID: 2000000004}
+  spawnDummyButton: {fileID: 0}
   immortalOnButton: {fileID: 874633212}
   immortalOffButton: {fileID: 1581124241}
-  patchPlayerButton: {fileID: 2000000104}
-  statPatchInput: {fileID: 2000000114}
-  skillsInput: {fileID: 2000000124}
-  loadoutInput: {fileID: 2000000134}
-  replaceSkillsToggle: {fileID: 2000000144}
+  patchPlayerButton: {fileID: 0}
+  statPatchInput: {fileID: 0}
+  skillsInput: {fileID: 0}
+  loadoutInput: {fileID: 0}
+  replaceSkillsToggle: {fileID: 0}
   showOnStart: 0
   toggleKey: 282
   spawnForwardOffset: 2
@@ -9409,9 +9407,14 @@ MonoBehaviour:
   fallbackTrigger: Attack
   variantMode: 0
   controlAttackLayerWeight: 1
-  attackLayerName: AttackHumanoid
+  attackLayerNames:
+  - AttackStanding
+  - AttackMoving
+  - AttackAny
   attackLayerWeight: 1
   layerFadeSpeed: 6
+  castModeParam: CastMode
+  useSkillParam: UseSkill
 --- !u!114 &2090582955
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10871,10 +10874,10 @@ RectTransform:
   - {fileID: 246432355}
   m_Father: {fileID: 1371673038}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 99.7576, y: 77.12}
-  m_SizeDelta: {x: 74.7231, y: 20.619}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -50, y: -15}
+  m_SizeDelta: {x: 74.7231, y: 20.619003}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2136076672
 MonoBehaviour:
