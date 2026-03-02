@@ -115,6 +115,15 @@ namespace DVBARPG.Game.Animation
             }
         }
 
+        public void PlayTrigger(string triggerName)
+        {
+            if (animator == null) return;
+            if (string.IsNullOrWhiteSpace(triggerName)) return;
+
+            ForceAttackLayerWeight();
+            animator.SetTrigger(Animator.StringToHash(triggerName));
+        }
+
         public void ForceAttackLayerWeight()
         {
             if (!controlAttackLayerWeight || animator == null || !_attackLayerReady) return;

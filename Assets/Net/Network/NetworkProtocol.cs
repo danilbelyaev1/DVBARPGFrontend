@@ -28,13 +28,13 @@ namespace DVBARPG.Net.Network
         public long? ClientTimeMs { get; set; }
         public float? X { get; set; }
         public float? Y { get; set; }
-        public string? SkillId { get; set; }
-        public string? Slot { get; set; }
+        public string SkillId { get; set; }
+        public string Slot { get; set; }
         public bool? Enabled { get; set; }
-        public string? Token { get; set; }
+        public string Token { get; set; }
         public System.Guid? CharacterId { get; set; }
         public System.Guid? SeasonId { get; set; }
-        public string? MapId { get; set; }
+        public string MapId { get; set; }
     }
 
     public sealed class HelloEnvelope
@@ -91,7 +91,7 @@ namespace DVBARPG.Net.Network
         public bool Reliable { get; set; }
         public long ServerTimeMs { get; set; }
         public int AckSeq { get; set; }
-        public System.Collections.Generic.Dictionary<string, float>? Cooldowns { get; set; }
+        public System.Collections.Generic.Dictionary<string, float> Cooldowns { get; set; }
         public PlayerSnapshot Player { get; set; } = new();
         public MonsterSnapshot[] Monsters { get; set; } = System.Array.Empty<MonsterSnapshot>();
         public ProjectileSnapshot[] Projectiles { get; set; } = System.Array.Empty<ProjectileSnapshot>();
@@ -121,7 +121,7 @@ namespace DVBARPG.Net.Network
         public bool SupportAEnabled { get; set; }
         public bool SupportBEnabled { get; set; }
         public bool MovementActive { get; set; }
-        public string? MovementSkillId { get; set; }
+        public string MovementSkillId { get; set; }
         public bool AttackAnimTriggered { get; set; }
     }
 

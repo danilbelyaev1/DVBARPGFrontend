@@ -11,11 +11,9 @@
 ## Assets/Core
 - `Assets/Core/GameRoot.cs` — корневой синглтон, регистрирует сервисы и запускает систему.
 - `Assets/Core/Services/AuthSession.cs` — модель авторизационной сессии.
+- `Assets/Core/Services/RuntimeMetaModels.cs` — модели /runtime/seasons/current и /runtime/characters.
 - `Assets/Core/Services/ServiceInterfaces.cs` — интерфейсы сервисов (Auth/Profile/Session и т.д.).
 - `Assets/Core/Services/ServiceRegistry.cs` — простой DI-контейнер.
-
-## Assets/Data
-- `Assets/Data/ClassData.cs` — ScriptableObject с данными класса (используется в выборе класса).
 
 ## Assets/Game/Animation
 - `Assets/Game/Animation/PlayerAbilityAnimationDriver.cs` — анимации способностей игрока (SkillId -> Trigger).
@@ -27,6 +25,16 @@
 
 ## Assets/Game/Combat
 - `Assets/Game/Combat/CombatSlots.cs` — константы слотов боя (attack/supportA/supportB).
+
+## Assets/Game/Skills
+- `Assets/Game/Skills/SkillPresentationDriver.cs` — драйвер презентации скиллов игрока (анимации/VFX по SkillId).
+- `Assets/Game/Skills/SkillPresentationBootstrap.cs` — загрузка `/skills/catalog` и `/characters/{characterId}` для автоподстановки скиллов.
+- `Assets/Game/Skills/SkillRangeCatalog.cs` — кэш Range по SkillId из `/skills/catalog`.
+- `Assets/Game/Skills/Presentation/SkillPresentation.cs` — ScriptableObject презентации скилла.
+- `Assets/Game/Skills/Presentation/SkillPresentationCatalog.cs` — каталог презентаций по SkillId.
+- `Assets/Game/Skills/Presentation/SkillSocketLocator.cs` — поиск сокетов для VFX.
+- `Assets/Game/Skills/Presentation/SkillVfxBinding.cs` — описание VFX по событию.
+- `Assets/Game/Skills/Presentation/SkillVfxEventType.cs` — типы событий VFX.
 
 ## Assets/Game/Dev
 - `Assets/Game/Dev/DevRunBootstrap.cs` — dev-старт забега из Run.
@@ -46,6 +54,7 @@
 - `Assets/Game/Player/JoystickInput.cs` — виртуальный джойстик.
 - `Assets/Game/Player/NetworkPlayerReplicator.cs` — репликация/предсказание игрока.
 - `Assets/Game/Player/PlayerInputController.cs` — ввод (WASD/мышь/джойстик) и отправка в сеть.
+- `Assets/Game/Player/PlayerTargetFacing.cs` — поворот игрока к ближайшей цели в радиусе максимального Range.
 
 ## Assets/Game/World
 - `Assets/Game/World/UnifiedHeightSampler.cs` — единый сэмплер высоты (terrain + меши).
@@ -70,14 +79,15 @@
 ## Assets/Net/Network
 - `Assets/Net/Network/NetworkProtocol.cs` — модели сетевого протокола.
 - `Assets/Net/Network/NetworkSessionRunner.cs` — UDP транспорт + буфер снапшотов.
+- `Assets/Net/Network/RuntimeMetaService.cs` — запрос /runtime/seasons/current, /runtime/characters и /runtime/auth/validate.
 
 ## Assets/Tools/Editor
 - `Assets/Tools/Editor/IslandObstacleGenerator.cs` — генерация ObstacleMesh и экспортных боксов.
 - `Assets/Tools/Editor/RuntimeMapExporter.cs` — экспорт карты в JSON для сервера.
 
 ## Assets/UI
-- `Assets/UI/CharacterSelect/CharacterSelectScreen.cs` — логика UI выбора класса.
-- `Assets/UI/CharacterSelect/SelectedClassDebugLabel.cs` — debug-лейбл выбранного класса.
+- `Assets/UI/CharacterSelect/CharacterSelectScreen.cs` — логика перехода к Run после выбора персонажа (без ClassData).
+- `Assets/UI/CharacterSelect/SelectedClassDebugLabel.cs` — debug-лейбл выбранного класса (может быть пустым).
 - `Assets/UI/Dev/DevCommandsPanel.cs` — dev панель команд.
 - `Assets/UI/Login/LoginScreen.cs` — логика кнопки Login.
-- `Assets/UI/Run/AutoSkillTogglePanel.cs` — UI панель включения/выключения авто-скиллов.
+- `Assets/UI/Run/AutoSkillTogglePanel.cs` — UI панель авто-скиллов + отображение ServerLoadout.
