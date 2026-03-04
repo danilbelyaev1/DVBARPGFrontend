@@ -1,4 +1,4 @@
-﻿# Unity generated
+# Unity generated
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
@@ -61,5 +61,5 @@ Assets/AddressableAssetsData/*/*.bin*
 # Rider plugin auto-generated
 .idea/.idea.*
 
-RuntimeServerARPG
+# RuntimeServerARPG  — раскомментируй, если не хочешь коммитить бэк в этот репо
 AGENTS.md

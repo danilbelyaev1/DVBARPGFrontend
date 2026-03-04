@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace DVBARPG.Core.Services
 {
@@ -21,6 +21,8 @@ namespace DVBARPG.Core.Services
     {
         public string Id;
         public string Name;
+        /// <summary>Пол с бэка: male / female.</summary>
+        public string Gender;
         public string[] Seasons = Array.Empty<string>();
     }
 
@@ -46,5 +48,20 @@ namespace DVBARPG.Core.Services
         public string SkillId;
         public int Level;
         public string ModifiersJson;
+    }
+
+    /// <summary>Пayload для PUT loadout (совпадает с combatLoadout на бэке).</summary>
+    public sealed class RuntimeLoadoutPayload
+    {
+        public string AttackSkillId;
+        public string SupportASkillId;
+        public string SupportBSkillId;
+        public string MovementSlot; // "supportA" или "supportB"
+    }
+
+    public sealed class SetLoadoutResult
+    {
+        public bool Ok;
+        public string Error;
     }
 }

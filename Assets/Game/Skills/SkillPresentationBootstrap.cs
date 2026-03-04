@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using DVBARPG.Core.Services;
 using DVBARPG.Game.Network;
-using DVBARPG.Game.Skills;
 using DVBARPG.Game.Skills;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -242,7 +241,8 @@ namespace DVBARPG.Game.Skills.Presentation
             var profile = FindProfile(response, seasonId);
             if (profile == null)
             {
-                if (logErrors) Debug.LogWarning("SkillPresentationBootstrap: character runtime profile not found.");
+                // Нормальная ситуация: у персонажа ещё нет runtime-профиля для этого сезона (первый заход в сезон / новый персонаж). Используем дефолтный лоадаут.
+                if (logErrors) Debug.Log("SkillPresentationBootstrap: no runtime profile for current season; using default loadout.");
                 FallbackEquipped(outEquipped, catalogIds);
                 yield break;
             }

@@ -19,6 +19,8 @@ namespace DVBARPG.Net.Network
         public bool IsConnected { get; private set; }
         public event Action<SnapshotEnvelope> Snapshot;
         public event Action<int, Vector2, float> MoveSent;
+        /// <summary>Вызывается один раз при завершении забега: true = смерть (HP=0), false = досрочный выход (finish).</summary>
+        public event Action<bool> RunEnded;
 
         [Header("Отладка UDP")]
         [Tooltip("Включить логирование отправки/приёма UDP пакетов.")]
@@ -47,14 +49,31 @@ namespace DVBARPG.Net.Network
         private Guid? _sessionId;
         private string _pendingMapId = "default";
         private float _avgPingMs;
+        private bool _runEndedFired;
 
         private readonly TimeSpan _resendInterval = TimeSpan.FromMilliseconds(200);
         private const int MaxRetries = 10;
 
+        public void Disconnect()
+        {
+            try
+            {
+                _cts?.Cancel();
+                _udp?.Dispose();
+            }
+            catch { }
+            _udp = null;
+            _cts = null;
+            _sessionId = null;
+            _connectOk = false;
+            _instanceStarted = false;
+            IsConnected = false;
+        }
+
         public void Connect(AuthSession session, string mapId, string serverUrl)
         {
-            if (IsConnected) return;
             if (session == null) return;
+            Disconnect();
 
             _serverUrl = string.IsNullOrWhiteSpace(serverUrl) ? _serverUrl : serverUrl;
             _pendingMapId = string.IsNullOrWhiteSpace(mapId) ? "default" : mapId;
@@ -69,14 +88,16 @@ namespace DVBARPG.Net.Network
             _resendTask = Task.Run(async () => await ResendLoopAsync(_cts.Token));
             _keepaliveTask = Task.Run(async () => await KeepaliveLoopAsync(_cts.Token));
 
-            SendReliable(new CommandEnvelope
+            var connectEnv = new CommandEnvelope
             {
                 Type = "connect",
                 Seq = NextSeq(),
                 Token = session.Token,
                 CharacterId = session.CharacterId,
                 SeasonId = session.SeasonId
-            });
+            };
+            DebugLog($"NetworkSessionRunner: sending connect CharacterId={connectEnv.CharacterId} SeasonId={connectEnv.SeasonId} TokenLength={session.Token?.Length ?? 0}");
+            SendReliable(connectEnv);
         }
 
         public void Send(IClientCommand command)
@@ -140,6 +161,22 @@ namespace DVBARPG.Net.Network
                     Seq = seq,
                     ClientTimeMs = (long)(Time.unscaledTime * 1000f)
                 });
+                return;
+            }
+
+            if (command is CmdFinish)
+            {
+                SendReliable(new CommandEnvelope
+                {
+                    Type = "finish",
+                    Seq = NextSeq(),
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f)
+                });
+                if (!_runEndedFired)
+                {
+                    _runEndedFired = true;
+                    RunEnded?.Invoke(false);
+                }
             }
         }
 
@@ -150,6 +187,12 @@ namespace DVBARPG.Net.Network
                 while (_snapshots.TryDequeue(out var snap))
             {
                 Snapshot?.Invoke(snap);
+
+                if (!_runEndedFired && snap?.Player != null && snap.Player.MaxHp > 0 && snap.Player.Hp <= 0)
+                {
+                    _runEndedFired = true;
+                    RunEnded?.Invoke(true);
+                }
 
                 lock (_bufferLock)
                 {
@@ -310,13 +353,19 @@ namespace DVBARPG.Net.Network
                         break;
                     case "instance_start":
                         _instanceStarted = true;
+                        _runEndedFired = false;
                         break;
                     case "error":
                         var err = JsonConvert.DeserializeObject<ErrorEnvelope>(json, NetProtocol.JsonSettings);
                         if (err != null)
                         {
                             DebugLogWarning($"NetworkSessionRunner: server error {err.Code} {err.Message}");
+                            if (string.Equals(err.Code, "auth_failed", StringComparison.OrdinalIgnoreCase))
+                            {
+                                DebugLogWarning("NetworkSessionRunner: auth_failed — проверьте: 1) Laravel запущен и доступен с runtime-server (BACKEND_BASE_URL). 2) Токен валиден (тот же, что при выборе персонажа). 3) characterId/seasonId соответствуют выбранному персонажу и текущему сезону (логи «sending connect» выше).");
+                            }
                         }
+                        DebugLogWarning($"NetworkSessionRunner: full server error response: {json}");
                         break;
                     case "hello":
                         var hello = JsonConvert.DeserializeObject<HelloEnvelope>(json, NetProtocol.JsonSettings);

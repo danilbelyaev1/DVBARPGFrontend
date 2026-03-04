@@ -1,6 +1,7 @@
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Local;
 using DVBARPG.Net.Mock;
+using DVBARPG.UI.LoadingOverlay;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -57,10 +58,21 @@ namespace DVBARPG.Core
             DontDestroyOnLoad(metaGo);
             var runtimeMeta = metaGo.AddComponent<DVBARPG.Net.Network.RuntimeMetaService>();
             Services.Register<IRuntimeMetaService>(runtimeMeta);
-            Services.Register<IInventoryService>(new LocalInventoryService());
-            Services.Register<IMarketService>(new LocalMarketService());
+            var invGo = new GameObject("[BackendInventory]");
+            DontDestroyOnLoad(invGo);
+            var backendInv = invGo.AddComponent<DVBARPG.Net.Network.BackendInventoryService>();
+            Services.Register<IInventoryService>(backendInv);
+            var marketGo = new GameObject("[BackendMarket]");
+            DontDestroyOnLoad(marketGo);
+            Services.Register<IMarketService>(marketGo.AddComponent<DVBARPG.Net.Network.BackendMarketService>());
+            var currencyGo = new GameObject("[BackendCurrency]");
+            DontDestroyOnLoad(currencyGo);
+            Services.Register<ICurrencyService>(currencyGo.AddComponent<DVBARPG.Net.Network.BackendCurrencyService>());
             Services.Register<IStatService>(new LocalStatService());
             Services.Register<IItemRollService>(new LocalItemRollService());
+            var overlayGo = new GameObject("[LoadingOverlay]");
+            DontDestroyOnLoad(overlayGo);
+            Services.Register<ILoadingOverlayService>(overlayGo.AddComponent<LoadingOverlayService>());
         }
     }
 }

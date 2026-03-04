@@ -1,3 +1,5 @@
+using System;
+using DVBARPG.Core.Services;
 using DVBARPG.Net.Network;
 using UnityEngine;
 
@@ -13,17 +15,17 @@ namespace DVBARPG.Game.Network
 
         private void Start()
         {
-            var session = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.ISessionService>();
+            RunResultState.Reset();
+            var session = DVBARPG.Core.GameRoot.Instance.Services.Get<ISessionService>();
             if (session is NetworkSessionRunner net)
             {
-                var profile = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.IProfileService>();
+                var profile = DVBARPG.Core.GameRoot.Instance.Services.Get<IProfileService>();
                 StartCoroutine(ConnectWhenReady(net, profile));
             }
         }
 
-        private System.Collections.IEnumerator ConnectWhenReady(NetworkSessionRunner net, DVBARPG.Core.Services.IProfileService profile)
+        private System.Collections.IEnumerator ConnectWhenReady(NetworkSessionRunner net, IProfileService profile)
         {
-            // Ждём, пока выбраны персонаж и сезон.
             while (profile == null ||
                    profile.CurrentAuth == null ||
                    string.IsNullOrWhiteSpace(profile.SelectedCharacterId) ||
@@ -32,12 +34,13 @@ namespace DVBARPG.Game.Network
                 yield return null;
             }
 
-            var auth = profile.CurrentAuth;
-            var meta = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.IRuntimeMetaService>();
+            // Всегда подставляем выбранного персонажа и сезон в сессию (на случай если CharacterSelect не обновил CurrentAuth).
+            var auth = BuildAuthForRun(profile);
+            var meta = DVBARPG.Core.GameRoot.Instance.Services.Get<IRuntimeMetaService>();
             if (meta != null)
             {
                 bool done = false;
-                DVBARPG.Core.Services.RuntimeAuthSnapshot result = null;
+                RuntimeAuthSnapshot result = null;
                 meta.ValidateAuth(auth, profile.SelectedCharacterId, profile.CurrentSeasonId, snapshot =>
                 {
                     result = snapshot;
@@ -67,17 +70,36 @@ namespace DVBARPG.Game.Network
             net.Connect(auth, mapId, serverUrl);
         }
 
-        private static void LogEquippedSkills(DVBARPG.Core.Services.RuntimeAuthSnapshot snapshot)
+        private static AuthSession BuildAuthForRun(IProfileService profile)
+        {
+            var current = profile.CurrentAuth;
+            if (current == null) return null;
+            var characterId = profile.SelectedCharacterId;
+            var seasonId = profile.CurrentSeasonId;
+            if (string.IsNullOrWhiteSpace(characterId) || string.IsNullOrWhiteSpace(seasonId))
+                return current;
+            if (!Guid.TryParse(characterId, out var cid) || !Guid.TryParse(seasonId, out var sid))
+                return current;
+            return new AuthSession
+            {
+                PlayerId = current.PlayerId,
+                Token = current.Token,
+                CharacterId = cid,
+                SeasonId = sid
+            };
+        }
+
+        private static void LogEquippedSkills(RuntimeAuthSnapshot snapshot)
         {
             if (snapshot == null || snapshot.Loadout == null) return;
-            var skills = snapshot.Skills ?? System.Array.Empty<DVBARPG.Core.Services.RuntimeSkillSnapshot>();
+            var skills = snapshot.Skills ?? System.Array.Empty<RuntimeSkillSnapshot>();
             LogEquipped(skills, snapshot.Loadout.AttackSkillId, "attack");
             LogEquipped(skills, snapshot.Loadout.SupportASkillId, "supportA");
             LogEquipped(skills, snapshot.Loadout.SupportBSkillId, "supportB");
             LogEquipped(skills, snapshot.Loadout.MovementSkillId, "movement");
         }
 
-        private static void LogEquipped(DVBARPG.Core.Services.RuntimeSkillSnapshot[] skills, string skillId, string slot)
+        private static void LogEquipped(RuntimeSkillSnapshot[] skills, string skillId, string slot)
         {
             if (string.IsNullOrWhiteSpace(skillId)) return;
             for (int i = 0; i < skills.Length; i++)

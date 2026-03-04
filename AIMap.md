@@ -5,13 +5,17 @@
 
 ## Документация
 - `AGENTS.md` — правила работы и ограничения по изменениям.
+- `PROJECT_OVERVIEW.md` — архитектура, кто что вызывает, где искать по задаче.
 - `AIConcept.md` — концепция игры, боёвка и управление.
 - `README.md` — краткое описание проекта.
 
 ## Assets/Core
 - `Assets/Core/GameRoot.cs` — корневой синглтон, регистрирует сервисы и запускает систему.
 - `Assets/Core/Services/AuthSession.cs` — модель авторизационной сессии.
+- `Assets/Core/Services/ClassLoadoutPresets.cs` — пресеты лоадута по классу (vanguard/hunter/mystic).
 - `Assets/Core/Services/RuntimeMetaModels.cs` — модели /runtime/seasons/current и /runtime/characters.
+- `Assets/Core/Services/InventoryModels.cs` — DTO инвентаря (InventoryItemDto, InventoryResult и т.д.).
+- `Assets/Core/Services/MarketModels.cs` — DTO маркета и валюты (MarketListingDto, CurrencyBalanceResult и т.д.).
 - `Assets/Core/Services/ServiceInterfaces.cs` — интерфейсы сервисов (Auth/Profile/Session и т.д.).
 - `Assets/Core/Services/ServiceRegistry.cs` — простой DI-контейнер.
 
@@ -48,6 +52,9 @@
 - `Assets/Game/Network/NetworkPlayerHpLabel.cs` — UI HP игрока.
 - `Assets/Game/Network/NetworkProjectilesReplicator.cs` — репликация снарядов.
 - `Assets/Game/Network/NetworkRunConnector.cs` — соединение с сервером из Run.
+- `Assets/Game/Network/RunResultState.cs` — состояние завершения забега (смерть/досрочный выход) для экрана результатов.
+- `Assets/Game/Network/RunEndController.cs` — подписка на RunEnded, скрытие игрока, метод досрочного выхода (finish).
+- `Assets/Game/Network/RunSceneCleanup.cs` — при выгрузке Run отключает UDP-сессию (Disconnect).
 
 ## Assets/Game/Player
 - `Assets/Game/Player/AutoSkillToggleController.cs` — переключение авто-использования слотов и отправка на сервер.
@@ -64,6 +71,7 @@
 - `Assets/Net/Commands/CmdMove.cs` — команда движения.
 - `Assets/Net/Commands/CmdStop.cs` — команда остановки.
 - `Assets/Net/Commands/CmdSlotToggle.cs` — команда включения/выключения слота.
+- `Assets/Net/Commands/CmdFinish.cs` — команда досрочного завершения забега (finish).
 - `Assets/Net/Commands/CmdDebug.cs` — debug-команды для dev режима.
 
 ## Assets/Net/Local
@@ -79,15 +87,29 @@
 ## Assets/Net/Network
 - `Assets/Net/Network/NetworkProtocol.cs` — модели сетевого протокола.
 - `Assets/Net/Network/NetworkSessionRunner.cs` — UDP транспорт + буфер снапшотов.
-- `Assets/Net/Network/RuntimeMetaService.cs` — запрос /runtime/seasons/current, /runtime/characters и /runtime/auth/validate.
+- `Assets/Net/Network/RuntimeMetaService.cs` — запрос /runtime/seasons/current, /runtime/characters, auth/validate и PUT loadout.
+- `Assets/Net/Network/BackendInventoryService.cs` — HTTP-клиент инвентаря Laravel (GET inventory, equip, unequip, move, split, merge).
+- `Assets/Net/Network/BackendMarketService.cs` — HTTP-клиент маркета Laravel (listings, list, cancel, buy).
+- `Assets/Net/Network/BackendCurrencyService.cs` — HTTP-клиент валюты Laravel (balance, ledger).
 
 ## Assets/Tools/Editor
 - `Assets/Tools/Editor/IslandObstacleGenerator.cs` — генерация ObstacleMesh и экспортных боксов.
 - `Assets/Tools/Editor/RuntimeMapExporter.cs` — экспорт карты в JSON для сервера.
 
 ## Assets/UI
-- `Assets/UI/CharacterSelect/CharacterSelectScreen.cs` — логика перехода к Run после выбора персонажа (без ClassData).
-- `Assets/UI/CharacterSelect/SelectedClassDebugLabel.cs` — debug-лейбл выбранного класса (может быть пустым).
+- `Assets/UI/CharacterSelect/CharacterSelectScreen.cs` — список персонажей (префаб строки), кнопка «Играть», кнопка «Создать персонажа» → CharacterCreate.
+- `Assets/UI/CharacterSelect/SelectedClassDebugLabel.cs` — debug-лейбл выбранного класса (опционально).
+- `Assets/UI/CharacterCreate/CharacterCreateScreen.cs` — создание персонажа: класс (vanguard/hunter/mystic), пол, имя, панель внешности (заглушка); CreateCharacter + SetLoadout → CharacterSelect.
 - `Assets/UI/Dev/DevCommandsPanel.cs` — dev панель команд.
 - `Assets/UI/Login/LoginScreen.cs` — логика кнопки Login.
 - `Assets/UI/Run/AutoSkillTogglePanel.cs` — UI панель авто-скиллов + отображение ServerLoadout.
+- `Assets/UI/Run/RunResultsPanel.cs` — панель результатов забега (поражение/завершён, убийства, кнопка «В меню»).
+- `Assets/UI/Run/RunExitButton.cs` — кнопка досрочного выхода из забега (команда finish).
+- `Assets/UI/Run/InventoryOpener.cs` — кнопка и клавиша I для открытия/закрытия сцены инвентаря в Run (additive).
+- `Assets/UI/Inventory/InventorySceneHelper.cs` — статический хелпер: открыть/закрыть сцену Inventory (additive), Toggle, IsLoaded.
+- `Assets/UI/Inventory/InventoryScreen.cs` — экран инвентаря в сцене Inventory (ячейки сумки по bagCapacity, привязка слотов экипировки, панель описания по клику); кнопка «Закрыть» выгружает сцену.
+- `Assets/UI/Inventory/ItemDetailPanel.cs` — панель описания предмета (название, описание, Экипировать/Снять, позиция: центр на мобилке, над предметом на ПК).
+- `Assets/UI/Inventory/OpenInventorySceneButton.cs` — кнопка открытия сцены инвентаря (для CharacterSelect и др.).
+- `Assets/UI/Market/MarketScreen.cs` — экран маркета (список лотов, кнопка купить).
+- `Assets/UI/Currency/CurrencyLabel.cs` — отображение баланса валюты.
+- `Assets/UI/Talents/TalentsScreen.cs` — экран талантов (вызов POST talents/allocate).

@@ -1,6 +1,7 @@
 using DVBARPG.Core;
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Commands;
+using DVBARPG.UI.Inventory;
 using UnityEngine;
 using DVBARPG.Tools;
 #if ENABLE_INPUT_SYSTEM
@@ -82,6 +83,17 @@ namespace DVBARPG.Game.Player
 
         private bool CanMove()
         {
+            // Не двигать персонажа, когда открыт инвентарь — клики должны идти в UI.
+            if (InventorySceneHelper.IsLoaded)
+            {
+                if (_wasMoving)
+                {
+                    _session?.Send(new DVBARPG.Net.Commands.CmdStop());
+                    _wasMoving = false;
+                }
+                return false;
+            }
+
             if (_session is DVBARPG.Net.Network.NetworkSessionRunner)
             {
                 if (NetworkPlayerReplicator.CurrentHp == 0)
