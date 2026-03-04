@@ -1,8 +1,15 @@
-namespace DVBARPG.Core.Services
+﻿namespace DVBARPG.Core.Services
 {
     public interface IAuthService
     {
         AuthSession Login();
+    }
+
+    public interface IRuntimeMetaService
+    {
+        void FetchCurrentSeason(AuthSession session, System.Action<RuntimeSeasonSnapshot> onDone);
+        void FetchCharacters(AuthSession session, System.Action<RuntimeCharactersSnapshot> onDone);
+        void ValidateAuth(AuthSession session, string characterId, string seasonId, System.Action<RuntimeAuthSnapshot> onDone);
     }
 
     public interface IProfileService
@@ -12,6 +19,21 @@ namespace DVBARPG.Core.Services
 
         string SelectedClassId { get; }
         void SetSelectedClass(string classId);
+
+        string SelectedCharacterId { get; }
+        void SetSelectedCharacter(string characterId);
+
+        string CurrentSeasonId { get; }
+        void SetCurrentSeason(string seasonId);
+
+        RuntimeCharacterSummary[] Characters { get; }
+        void SetCharacters(RuntimeCharacterSummary[] characters);
+
+        RuntimeLoadout ServerLoadout { get; }
+        void SetServerLoadout(RuntimeLoadout loadout);
+
+        float BaseMoveSpeed { get; }
+        void SetBaseMoveSpeed(float moveSpeed);
     }
 
     public interface ISessionService

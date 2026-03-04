@@ -30,12 +30,6 @@ namespace DVBARPG.UI.Login
 
         private void OnPlayClicked()
         {
-            var auth = GameRoot.Instance.Services.Get<IAuthService>();
-            var profile = GameRoot.Instance.Services.Get<IProfileService>();
-
-            var session = auth.Login();
-            profile.SetAuth(session);
-
             SceneManager.LoadScene("CharacterSelect");
         }
     }

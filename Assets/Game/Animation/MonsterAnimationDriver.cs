@@ -159,7 +159,8 @@ namespace DVBARPG.Game.Animation
 
         private float GetAttackCooldownSec(string type)
         {
-            var cooldown = defaultMeleeCooldown;
+            var isRanged = string.Equals(type, "ranged", System.StringComparison.OrdinalIgnoreCase);
+            var cooldown = isRanged ? defaultRangedCooldown : defaultMeleeCooldown;
             if (DVBARPG.Game.Network.MonsterCatalogClient.TryGetByType(type, out var stats))
             {
                 if (stats.AttackCooldownSec > 0.001f)

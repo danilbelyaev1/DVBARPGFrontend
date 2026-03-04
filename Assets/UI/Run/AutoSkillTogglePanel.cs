@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using DVBARPG.Core;
 using DVBARPG.Core.Services;
-using DVBARPG.Data;
 using DVBARPG.Game.Combat;
 using DVBARPG.Game.Player;
 using DVBARPG.Net.Network;
@@ -51,24 +50,20 @@ namespace DVBARPG.UI.Run
         [Tooltip("Текст кулдауна поддержки B.")]
         [SerializeField] private Text supportBCooldownText;
 
-        [Header("Данные классов")]
-        [Tooltip("Использовать SkillId из ClassData выбранного класса.")]
-        [SerializeField] private bool useClassData = true;
-        [Tooltip("ClassData для класса Melee.")]
-        [SerializeField] private ClassData meleeClass;
-        [Tooltip("ClassData для класса Ranged.")]
-        [SerializeField] private ClassData rangedClass;
-        [Tooltip("ClassData для класса Mage.")]
-        [SerializeField] private ClassData mageClass;
+        [Header("Loadout (сервер)")]
+        [Tooltip("Текст для отображения ServerLoadout.")]
+        [SerializeField] private Text serverLoadoutText;
 
         private NetworkSessionRunner _net;
         private readonly Dictionary<string, float> _maxCooldownBySkill = new(StringComparer.OrdinalIgnoreCase);
+        private string _lastLoadoutLabel;
+        private string _lastLoadoutSignature;
 
         private void Awake()
         {
             if (controller == null)
             {
-                controller = FindObjectOfType<AutoSkillToggleController>();
+                controller = FindFirstObjectByType<AutoSkillToggleController>();
             }
         }
 
@@ -81,7 +76,7 @@ namespace DVBARPG.UI.Run
                 _net.Snapshot += OnSnapshot;
             }
 
-            ResolveSkillIdsFromClass();
+            RefreshFromServerLoadout();
 
             if (attackButton != null) attackButton.onClick.AddListener(OnAttackPressed);
             if (supportAButton != null) supportAButton.onClick.AddListener(OnSupportAPressed);
@@ -93,6 +88,11 @@ namespace DVBARPG.UI.Run
             }
 
             RefreshAll();
+        }
+
+        private void Update()
+        {
+            RefreshFromServerLoadout();
         }
 
         private void OnDisable()
@@ -241,45 +241,59 @@ namespace DVBARPG.UI.Run
             }
         }
 
-        private void ResolveSkillIdsFromClass()
+        private void ResolveSkillIdsFromServer()
         {
-            if (!useClassData) return;
-
             var profile = GameRoot.Instance.Services.Get<IProfileService>();
-            if (profile == null || string.IsNullOrWhiteSpace(profile.SelectedClassId)) return;
+            if (profile == null) return;
 
-            var data = GetClassData(profile.SelectedClassId);
-            if (data == null) return;
-
-            if (!string.IsNullOrWhiteSpace(data.Skill2Id))
-            {
-                supportASkillId = data.Skill2Id;
-            }
-
-            if (!string.IsNullOrWhiteSpace(data.Skill3Id))
-            {
-                supportBSkillId = data.Skill3Id;
-            }
+            TryResolveFromServerLoadout(profile);
         }
 
-        private ClassData GetClassData(string classId)
+        private bool TryResolveFromServerLoadout(IProfileService profile)
         {
-            if (string.Equals(classId, ClassId.Melee.ToString(), StringComparison.OrdinalIgnoreCase))
+            var loadout = profile.ServerLoadout;
+            if (loadout == null) return false;
+
+            if (!string.IsNullOrWhiteSpace(loadout.SupportASkillId))
             {
-                return meleeClass;
+                supportASkillId = loadout.SupportASkillId;
             }
 
-            if (string.Equals(classId, ClassId.Ranged.ToString(), StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(loadout.SupportBSkillId))
             {
-                return rangedClass;
+                supportBSkillId = loadout.SupportBSkillId;
             }
 
-            if (string.Equals(classId, ClassId.Mage.ToString(), StringComparison.OrdinalIgnoreCase))
+            return !string.IsNullOrWhiteSpace(loadout.SupportASkillId) || !string.IsNullOrWhiteSpace(loadout.SupportBSkillId);
+        }
+
+        private void RefreshFromServerLoadout()
+        {
+            var profile = GameRoot.Instance.Services.Get<IProfileService>();
+            var loadout = profile?.ServerLoadout;
+            var signature = loadout == null
+                ? "<none>"
+                : $"{loadout.AttackSkillId}|{loadout.SupportASkillId}|{loadout.SupportBSkillId}|{loadout.MovementSkillId}";
+            if (string.Equals(signature, _lastLoadoutSignature, StringComparison.Ordinal))
             {
-                return mageClass;
+                return;
             }
 
-            return null;
+            _lastLoadoutSignature = signature;
+            ResolveSkillIdsFromServer();
+
+            if (serverLoadoutText == null) return;
+            var label = loadout == null
+                ? "ServerLoadout: <none>"
+                : $"ServerLoadout: atk={loadout.AttackSkillId} a={loadout.SupportASkillId} b={loadout.SupportBSkillId} move={loadout.MovementSkillId}";
+
+            if (string.Equals(label, _lastLoadoutLabel, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastLoadoutLabel = label;
+            serverLoadoutText.text = label;
         }
     }
 }

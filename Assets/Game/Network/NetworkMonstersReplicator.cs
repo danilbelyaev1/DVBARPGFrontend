@@ -153,5 +153,7 @@ namespace DVBARPG.Game.Network
         {
             return Registry.TryGetValue(id, out tr);
         }
+
+        public static IReadOnlyCollection<Transform> AllTransforms => Registry.Values;
     }
 }

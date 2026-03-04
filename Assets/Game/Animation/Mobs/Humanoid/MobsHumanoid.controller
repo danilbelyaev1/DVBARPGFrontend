@@ -191,7 +191,7 @@ AnimatorController:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Humanoid
+  m_Name: MobsHumanoid
   serializedVersion: 5
   m_AnimatorParameters:
   - m_Name: IsMoving
@@ -246,7 +246,7 @@ AnimatorController:
   - serializedVersion: 5
     m_Name: AttackMobs
     m_StateMachine: {fileID: -7877789695980922118}
-    m_Mask: {fileID: 0}
+    m_Mask: {fileID: 31900000, guid: 38e0a03f84cf5f4499aebd93b1f81b53, type: 2}
     m_Motions: []
     m_Behaviours: []
     m_BlendingMode: 0

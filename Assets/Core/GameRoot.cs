@@ -53,6 +53,10 @@ namespace DVBARPG.Core
             DontDestroyOnLoad(go);
             var net = go.AddComponent<DVBARPG.Net.Network.NetworkSessionRunner>();
             Services.Register<ISessionService>(net);
+            var metaGo = new GameObject("[RuntimeMeta]");
+            DontDestroyOnLoad(metaGo);
+            var runtimeMeta = metaGo.AddComponent<DVBARPG.Net.Network.RuntimeMetaService>();
+            Services.Register<IRuntimeMetaService>(runtimeMeta);
             Services.Register<IInventoryService>(new LocalInventoryService());
             Services.Register<IMarketService>(new LocalMarketService());
             Services.Register<IStatService>(new LocalStatService());

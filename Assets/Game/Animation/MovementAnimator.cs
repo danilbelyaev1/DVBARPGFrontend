@@ -17,6 +17,14 @@ namespace DVBARPG.Game.Animation
         [SerializeField] private float movingOffThreshold = 0.05f;
         [Tooltip("Сглаживание скорости (сек).")]
         [SerializeField] private float speedSmoothingTime = 0.1f;
+        [Tooltip("Сглаживание параметров направления (сек).")]
+        [SerializeField] private float directionSmoothingTime = 0.08f;
+        [Tooltip("Базовая скорость движения для нормализации параметра Speed.")]
+        [SerializeField] private float baseMoveSpeed = 4.0f;
+        [Tooltip("Значение параметра Speed при базовой скорости.")]
+        [SerializeField] private float speedAtBase = 0.1f;
+        [Tooltip("Максимальное значение параметра Speed.")]
+        [SerializeField] private float maxSpeedParam = 2.0f;
         [Tooltip("Мгновенно выключать IsMoving при нулевом смещении.")]
         [SerializeField] private bool instantStop = true;
         [Header("Поворот")]
@@ -27,10 +35,14 @@ namespace DVBARPG.Game.Animation
 
         private Vector3 _lastPos;
         private float _smoothedSpeed;
+        private Vector2 _smoothedDir;
         private bool _isMoving;
         private bool _rotationLocked;
 
         private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+        private static readonly int SpeedHash = Animator.StringToHash("Speed");
+        private static readonly int MoveXHash = Animator.StringToHash("MoveX");
+        private static readonly int MoveYHash = Animator.StringToHash("MoveY");
         private static readonly int AttackHash = Animator.StringToHash("Attack");
         private static readonly int AttackRangedHash = Animator.StringToHash("AttackRanged");
 
@@ -65,6 +77,20 @@ namespace DVBARPG.Game.Animation
                 var delta = pos - _lastPos;
                 _lastPos = pos;
 
+                var dt = Mathf.Max(Time.deltaTime, 0.0001f);
+                if (baseMoveSpeed <= 0.001f)
+                {
+                    var profile = DVBARPG.Core.GameRoot.Instance?.Services?.Get<DVBARPG.Core.Services.IProfileService>();
+                    if (profile != null && profile.BaseMoveSpeed > 0.001f)
+                    {
+                        baseMoveSpeed = profile.BaseMoveSpeed;
+                    }
+                }
+                var localVel = transform.InverseTransformDirection(new Vector3(delta.x, 0f, delta.z)) / dt;
+                var targetDir = new Vector2(localVel.x, localVel.z);
+                var dirAlpha = 1f - Mathf.Exp(-dt / Mathf.Max(directionSmoothingTime, 0.001f));
+                _smoothedDir = Vector2.Lerp(_smoothedDir, targetDir, dirAlpha);
+
             if (instantStop && delta.sqrMagnitude < 0.0000001f)
             {
                 _smoothedSpeed = 0f;
@@ -73,8 +99,8 @@ namespace DVBARPG.Game.Animation
             }
             else
             {
-            var speedNow = delta.magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
-            var alpha = 1f - Mathf.Exp(-Mathf.Max(Time.deltaTime, 0.0001f) / Mathf.Max(speedSmoothingTime, 0.001f));
+            var speedNow = delta.magnitude / dt;
+            var alpha = 1f - Mathf.Exp(-dt / Mathf.Max(speedSmoothingTime, 0.001f));
             _smoothedSpeed = Mathf.Lerp(_smoothedSpeed, speedNow, alpha);
 
             if (_isMoving)
@@ -95,6 +121,12 @@ namespace DVBARPG.Game.Animation
             // Только флаг движения, без параметра скорости.
             animator.SetBool(IsMovingHash, _isMoving);
             }
+
+                // Параметры направления для Blend Tree.
+                animator.SetFloat(MoveXHash, _smoothedDir.x);
+                animator.SetFloat(MoveYHash, _smoothedDir.y);
+                var speedParam = baseMoveSpeed > 0.001f ? speedAtBase * (_smoothedSpeed / baseMoveSpeed) : speedAtBase;
+                animator.SetFloat(SpeedHash, Mathf.Clamp(speedParam, speedAtBase, maxSpeedParam));
 
                 if (rotateToMovement && !_rotationLocked && delta.sqrMagnitude > 0.0001f)
                 {

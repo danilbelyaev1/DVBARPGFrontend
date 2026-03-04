@@ -731,10 +731,10 @@ RectTransform:
   - {fileID: 1581124240}
   m_Father: {fileID: 1371673038}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.00045395, y: -10.309}
-  m_SizeDelta: {x: 272.64, y: 154.24}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -224, y: -159}
+  m_SizeDelta: {x: 420, y: 260}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &162222068
 MonoBehaviour:
@@ -3722,7 +3722,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -78.70001, y: 42.099976}
+  m_AnchoredPosition: {x: -140, y: 70}
   m_SizeDelta: {x: 100, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &874633212
@@ -3854,6 +3854,7 @@ MonoBehaviour:
   autoLoginInRun: 1
   onlyInEditor: 1
   defaultClassId: Melee
+  preferredCharacterId: 
 --- !u!1 &961739749
 GameObject:
   m_ObjectHideFlags: 0
@@ -4078,7 +4079,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -78.70001, y: 22.1}
+  m_AnchoredPosition: {x: 140, y: 100}
   m_SizeDelta: {x: 100, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &972410847
@@ -4901,6 +4902,7 @@ Transform:
   - {fileID: 547945240}
   - {fileID: 33205748}
   - {fileID: 928477605}
+  - {fileID: 1440053522}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1231372157
@@ -5624,8 +5626,14 @@ MonoBehaviour:
   clearMobsButton: {fileID: 1446635921}
   spawnMeleeButton: {fileID: 1487088888}
   spawnRangedButton: {fileID: 972410847}
+  spawnDummyButton: {fileID: 0}
   immortalOnButton: {fileID: 874633212}
   immortalOffButton: {fileID: 1581124241}
+  patchPlayerButton: {fileID: 0}
+  statPatchInput: {fileID: 0}
+  skillsInput: {fileID: 0}
+  loadoutInput: {fileID: 0}
+  replaceSkillsToggle: {fileID: 0}
   showOnStart: 0
   toggleKey: 282
   spawnForwardOffset: 2
@@ -6085,6 +6093,37 @@ Transform:
   - {fileID: 76911105}
   m_Father: {fileID: 340823380}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1440053521
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1440053522}
+  m_Layer: 0
+  m_Name: NetworkSkillCatalog
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1440053522
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1440053521}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1206607512}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1440409862
 GameObject:
   m_ObjectHideFlags: 0
@@ -6155,7 +6194,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -78.7, y: 62.1}
+  m_AnchoredPosition: {x: -140, y: 100}
   m_SizeDelta: {x: 100, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1446635921
@@ -6638,7 +6677,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 81.29993, y: 22.1}
+  m_AnchoredPosition: {x: 0, y: 100}
   m_SizeDelta: {x: 100, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1487088888
@@ -7323,7 +7362,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 81.3, y: 42.1}
+  m_AnchoredPosition: {x: 0, y: 70}
   m_SizeDelta: {x: 100, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1581124241
@@ -8637,11 +8676,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1950763405}
+  - component: {fileID: 1950763409}
   - component: {fileID: 1950763400}
   - component: {fileID: 1950763411}
   - component: {fileID: 1950763407}
-  - component: {fileID: 1950763409}
   - component: {fileID: 1950763408}
+  - component: {fileID: 1950763412}
   m_Layer: 6
   m_Name: Player
   m_TagString: Untagged
@@ -8716,8 +8756,12 @@ MonoBehaviour:
   movingOnThreshold: 0.15
   movingOffThreshold: 0.05
   speedSmoothingTime: 0.1
+  directionSmoothingTime: 0.08
+  baseMoveSpeed: 4
+  speedAtBase: 0.1
+  maxSpeedParam: 2
   instantStop: 1
-  rotateToMovement: 0
+  rotateToMovement: 1
   rotationLerp: 10
 --- !u!95 &1950763409
 Animator:
@@ -8729,7 +8773,7 @@ Animator:
   m_GameObject: {fileID: 1950763399}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: de13a7420582ded45a8d7d3f96889aca, type: 3}
-  m_Controller: {fileID: 9100000, guid: d2da1f330bb1922428699707e94ee919, type: 2}
+  m_Controller: {fileID: 9100000, guid: 298d044fb85472b4c998846a676490be, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -8763,6 +8807,22 @@ MonoBehaviour:
   supportAEnabled: 1
   supportBEnabled: 1
   sendStateOnConnect: 1
+--- !u!114 &1950763412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1950763399}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40278aa4c6e63d244af33744f6fdd21e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Player.PlayerTargetFacing
+  rotationLerp: 30
+  onlyWhenTargetInRange: 1
+  rotateToMovementWhenNoTarget: 1
+  fallbackRange: 6
 --- !u!1 &1979375779
 GameObject:
   m_ObjectHideFlags: 0
@@ -9310,6 +9370,127 @@ Transform:
   - {fileID: 1404194466}
   m_Father: {fileID: 974598544}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2090582953
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2090582958}
+  - component: {fileID: 2090582957}
+  - component: {fileID: 2090582956}
+  - component: {fileID: 2090582955}
+  - component: {fileID: 2090582954}
+  m_Layer: 0
+  m_Name: SkillSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2090582954
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2090582953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11d525d0b1b68a24a8b208ddd69c8708, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Animation.PlayerAbilityAnimationDriver
+  animator: {fileID: 0}
+  abilities: []
+  fallbackTrigger: Attack
+  variantMode: 0
+  controlAttackLayerWeight: 1
+  attackLayerNames:
+  - AttackStanding
+  - AttackMoving
+  - AttackAny
+  attackLayerWeight: 1
+  layerFadeSpeed: 6
+  castModeParam: CastMode
+  useSkillParam: UseSkill
+--- !u!114 &2090582955
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2090582953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8dad829d206bc7b4386386cd8f26de3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Skills.Presentation.SkillSocketLocator
+  sockets: []
+  fallback: {fileID: 1950763405}
+--- !u!114 &2090582956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2090582953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 297959e1e7475334bb3713f9d4d0ef63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Skills.Presentation.SkillPresentationDriver
+  catalog: {fileID: 0}
+  animationDriver: {fileID: 2090582954}
+  preferPresentationTrigger: 1
+  sockets: {fileID: 2090582955}
+  vfxRoot: {fileID: 1950763405}
+  attackSkillId: 
+  supportASkillId: 
+  supportBSkillId: 
+  movementFallbackSkillId: 
+  logMissingSkills: 0
+--- !u!114 &2090582957
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2090582953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 579355cec6170a04592cad7cc945d357, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Skills.Presentation.SkillPresentationBootstrap
+  runtimeBaseUrlOverride: 
+  timeoutSec: 10
+  logOnSuccess: 1
+  logErrors: 1
+  logCatalogResponse: 1
+  useProfileAuth: 1
+  tokenOverride: 
+  characterIdOverride: 
+  seasonIdOverride: 
+  baseCatalog: {fileID: 0}
+  createRuntimeCatalog: 1
+  includeAllCatalogSkills: 1
+  driver: {fileID: 2090582956}
+--- !u!4 &2090582958
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2090582953}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.30277, y: -0.24423, z: 3.49072}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2100000000
 GameObject:
   m_ObjectHideFlags: 0
@@ -9416,10 +9597,7 @@ MonoBehaviour:
   supportACooldownText: {fileID: 2100000083}
   supportBCooldownFill: {fileID: 2100000093}
   supportBCooldownText: {fileID: 2100000103}
-  useClassData: 1
-  meleeClass: {fileID: 0}
-  rangedClass: {fileID: 0}
-  mageClass: {fileID: 0}
+  serverLoadoutText: {fileID: 0}
 --- !u!1 &2100000010
 GameObject:
   m_ObjectHideFlags: 0
@@ -10696,10 +10874,10 @@ RectTransform:
   - {fileID: 246432355}
   m_Father: {fileID: 1371673038}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 99.7576, y: 77.12}
-  m_SizeDelta: {x: 74.7231, y: 20.619}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -50, y: -15}
+  m_SizeDelta: {x: 74.7231, y: 20.619003}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2136076672
 MonoBehaviour:
@@ -10903,6 +11081,7 @@ SceneRoots:
   - {fileID: 203844589}
   - {fileID: 454478914}
   - {fileID: 1114105155}
+  - {fileID: 2090582958}
   - {fileID: 1950763405}
   - {fileID: 1206607512}
   - {fileID: 1570666661}

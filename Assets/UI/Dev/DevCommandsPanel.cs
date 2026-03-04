@@ -1,8 +1,11 @@
+using System;
+using System.Collections.Generic;
 using DVBARPG.Net.Commands;
 using DVBARPG.Net.Network;
+using Newtonsoft.Json;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace DVBARPG.UI.Dev
 {
@@ -19,10 +22,24 @@ namespace DVBARPG.UI.Dev
         [SerializeField] private Button spawnMeleeButton;
         [Tooltip("Кнопка: спавн рейндж моба.")]
         [SerializeField] private Button spawnRangedButton;
+        [Tooltip("Кнопка: спавн манекена.")]
+        [SerializeField] private Button spawnDummyButton;
         [Tooltip("Кнопка: бессмертие ВКЛ.")]
         [SerializeField] private Button immortalOnButton;
         [Tooltip("Кнопка: бессмертие ВЫКЛ.")]
         [SerializeField] private Button immortalOffButton;
+        [Tooltip("Кнопка: применить патч игрока.")]
+        [SerializeField] private Button patchPlayerButton;
+
+        [Header("Patch Player")]
+        [Tooltip("JSON для statPatch (например {\"moveSpeed\":6,\"attackPower\":20}).")]
+        [SerializeField] private InputField statPatchInput;
+        [Tooltip("JSON для skills (например [{\"skillId\":\"slash\",\"level\":1,\"modifiers\":{}}]).")]
+        [SerializeField] private InputField skillsInput;
+        [Tooltip("JSON для combatLoadout (например {\"attackSkillId\":\"slash\",\"supportASkillId\":\"guard_break\",\"supportBSkillId\":\"dash\"}).")]
+        [SerializeField] private InputField loadoutInput;
+        [Tooltip("Заменять весь список скиллов (true) или merge (false).")]
+        [SerializeField] private Toggle replaceSkillsToggle;
 
         [Header("Поведение")]
         [Tooltip("Показывать панель при старте.")]
@@ -48,8 +65,10 @@ namespace DVBARPG.UI.Dev
             if (clearMobsButton != null) clearMobsButton.onClick.AddListener(OnClearMobs);
             if (spawnMeleeButton != null) spawnMeleeButton.onClick.AddListener(OnSpawnMelee);
             if (spawnRangedButton != null) spawnRangedButton.onClick.AddListener(OnSpawnRanged);
+            if (spawnDummyButton != null) spawnDummyButton.onClick.AddListener(OnSpawnDummy);
             if (immortalOnButton != null) immortalOnButton.onClick.AddListener(OnImmortalOn);
             if (immortalOffButton != null) immortalOffButton.onClick.AddListener(OnImmortalOff);
+            if (patchPlayerButton != null) patchPlayerButton.onClick.AddListener(OnPatchPlayer);
         }
 
         private void OnDisable()
@@ -58,8 +77,10 @@ namespace DVBARPG.UI.Dev
             if (clearMobsButton != null) clearMobsButton.onClick.RemoveListener(OnClearMobs);
             if (spawnMeleeButton != null) spawnMeleeButton.onClick.RemoveListener(OnSpawnMelee);
             if (spawnRangedButton != null) spawnRangedButton.onClick.RemoveListener(OnSpawnRanged);
+            if (spawnDummyButton != null) spawnDummyButton.onClick.RemoveListener(OnSpawnDummy);
             if (immortalOnButton != null) immortalOnButton.onClick.RemoveListener(OnImmortalOn);
             if (immortalOffButton != null) immortalOffButton.onClick.RemoveListener(OnImmortalOff);
+            if (patchPlayerButton != null) patchPlayerButton.onClick.RemoveListener(OnPatchPlayer);
         }
 
         private void Update()
@@ -73,26 +94,64 @@ namespace DVBARPG.UI.Dev
         private void OnClearMobs() => SendDebug("debug_clear_mobs");
         private void OnSpawnMelee() => SendDebug("debug_spawn_melee", usePlayerPos: true);
         private void OnSpawnRanged() => SendDebug("debug_spawn_ranged", usePlayerPos: true);
+        private void OnSpawnDummy() => SendDebug("debug_spawn_dummy", usePlayerPos: true);
         private void OnImmortalOn() => SendDebug("debug_immortal_on");
         private void OnImmortalOff() => SendDebug("debug_immortal_off");
+        private void OnPatchPlayer() => SendDebug(BuildPatchCommand());
 
         private void SendDebug(string type, bool usePlayerPos = false)
         {
             if (_net == null) return;
 
             var cmd = new CmdDebug { Type = type };
-            if (usePlayerPos)
+            ApplyPosition(cmd, usePlayerPos);
+            _net.Send(cmd);
+        }
+
+        private void SendDebug(CmdDebug cmd)
+        {
+            if (_net == null || cmd == null) return;
+            _net.Send(cmd);
+        }
+
+        private CmdDebug BuildPatchCommand()
+        {
+            var cmd = new CmdDebug { Type = "debug_patch_player" };
+            ApplyPosition(cmd, usePlayerPos: false);
+
+            if (statPatchInput != null && !string.IsNullOrWhiteSpace(statPatchInput.text))
             {
-                var tr = DVBARPG.Game.Player.NetworkPlayerReplicator.PlayerTransform;
-                if (tr != null)
-                {
-                    var pos = tr.position + tr.forward * spawnForwardOffset;
-                    cmd.HasPosition = true;
-                    cmd.Position = new Vector2(pos.x, pos.z);
-                }
+                cmd.StatPatch = JsonConvert.DeserializeObject<Dictionary<string, float>>(statPatchInput.text);
             }
 
-            _net.Send(cmd);
+            if (skillsInput != null && !string.IsNullOrWhiteSpace(skillsInput.text))
+            {
+                cmd.Skills = JsonConvert.DeserializeObject<List<SkillInstance>>(skillsInput.text);
+            }
+
+            if (loadoutInput != null && !string.IsNullOrWhiteSpace(loadoutInput.text))
+            {
+                cmd.CombatLoadout = JsonConvert.DeserializeObject<CombatLoadout>(loadoutInput.text);
+            }
+
+            if (replaceSkillsToggle != null)
+            {
+                cmd.ReplaceSkills = replaceSkillsToggle.isOn;
+            }
+
+            return cmd;
+        }
+
+        private void ApplyPosition(CmdDebug cmd, bool usePlayerPos)
+        {
+            if (!usePlayerPos) return;
+            var tr = DVBARPG.Game.Player.NetworkPlayerReplicator.PlayerTransform;
+            if (tr != null)
+            {
+                var pos = tr.position + tr.forward * spawnForwardOffset;
+                cmd.HasPosition = true;
+                cmd.Position = new Vector2(pos.x, pos.z);
+            }
         }
 
         private void ToggleVisible()
