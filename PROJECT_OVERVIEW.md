@@ -107,8 +107,8 @@ Run/finish клиент не вызывает — это делает runtime п
 
 ## 7. UDP-протокол (клиент ↔ runtime :8081)
 
-- **Клиент → сервер:** команды в виде JSON: `connect`, `start`, `move`, `stop`, `slot_toggle`, `finish` (+ debug по необходимости). Модели: `NetworkProtocol.cs` (CommandEnvelope и др.).
-- **Сервер → клиент:** `hello`, `connect_ok`, `instance_start`, `snapshot`, `error`, `ack`, `net_stats`. Снапшот содержит Player (HP, позиция, флаги слотов), Monsters[], Projectiles[], Cooldowns.
+- **Клиент → сервер:** команды в виде JSON: `connect`, `start`, `move`, `stop`, `slot_toggle`, `finish`, `pickup` (DropIndex) (+ debug по необходимости). Модели: `NetworkProtocol.cs` (CommandEnvelope и др.).
+- **Сервер → клиент:** `hello`, `connect_ok`, `instance_start`, `snapshot`, `error`, `ack`, `net_stats`. Снапшот содержит Player (HP, позиция, флаги слотов), Monsters[], Projectiles[], Cooldowns, LootDrops[], PickedIndices[], Paused, LootWindowEndsAtUtc (окно лута после смерти).
 - Отправка команд: `ISessionService.Send(IClientCommand)`. Реализация: `NetworkSessionRunner.Send()` (CmdMove, CmdStop, CmdSlotToggle, CmdFinish, CmdDebug).
 - Завершение забега: по снапшоту с Player.Hp <= 0 вызывается RunEnded(true); при отправке finish — RunEnded(false). RunEndController обновляет RunResultState; RunResultsPanel показывает экран и кнопку «В меню».
 
@@ -130,6 +130,7 @@ Run/finish клиент не вызывает — это делает runtime п
 | Запросы к Laravel | `RuntimeMetaService.cs`, `BackendInventoryService.cs`, `BackendMarketService.cs`, `BackendCurrencyService.cs` |
 | Запросы к runtime HTTP | `SkillPresentationBootstrap.cs`, `MonsterCatalogClient.cs` |
 | UDP и снапшоты | `NetworkSessionRunner.cs`, `NetworkProtocol.cs`; репликация — `*Replicator.cs` в Game/Network и Game/Player |
+| Лут с монстров, дропы, подбор | `NetworkLootDropsReplicator.cs`, `CmdPickup.cs`; снапшот: LootDrops, PickedIndices; бэк: Runtime — roll на kill, Laravel — loot config, run/finish с killLog + pickedIndices |
 | Модели API (DTO) | `Assets/Core/Services/*.cs` (RuntimeMetaModels, InventoryModels, MarketModels), `NetworkProtocol.cs` |
 | Регистрация сервисов | `GameRoot.cs` → RegisterCoreServices |
 | Правила и ограничения | `AGENTS.md` |

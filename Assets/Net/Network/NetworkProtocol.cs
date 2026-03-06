@@ -41,6 +41,8 @@ namespace DVBARPG.Net.Network
         public List<SkillInstance> Skills { get; set; }
         public CombatLoadout CombatLoadout { get; set; }
         public bool? ReplaceSkills { get; set; }
+        /// <summary>Индекс дропа для команды pickup (подбор лута).</summary>
+        public int? DropIndex { get; set; }
     }
 
     public sealed class SkillInstance
@@ -116,9 +118,30 @@ namespace DVBARPG.Net.Network
         public long ServerTimeMs { get; set; }
         public int AckSeq { get; set; }
         public System.Collections.Generic.Dictionary<string, float> Cooldowns { get; set; }
+        /// <summary>Игрок мёртв — открыто окно лута до LootWindowEndsAtUtc.</summary>
+        public bool Paused { get; set; }
+        /// <summary>Момент окончания окна подбора лута (UTC).</summary>
+        public System.DateTime? LootWindowEndsAtUtc { get; set; }
+        /// <summary>Дропы на земле (золото/предметы). Уже подобранные исключены по PickedIndices.</summary>
+        public LootDropSnapshot[] LootDrops { get; set; } = System.Array.Empty<LootDropSnapshot>();
+        /// <summary>Индексы дропов, которые игрок уже подобрал.</summary>
+        public int[] PickedIndices { get; set; } = System.Array.Empty<int>();
         public PlayerSnapshot Player { get; set; } = new();
         public MonsterSnapshot[] Monsters { get; set; } = System.Array.Empty<MonsterSnapshot>();
         public ProjectileSnapshot[] Projectiles { get; set; } = System.Array.Empty<ProjectileSnapshot>();
+    }
+
+    /// <summary>Один дроп в снапшоте: золото или предмет (Type = "gold" | "item").</summary>
+    public sealed class LootDropSnapshot
+    {
+        public int Index { get; set; }
+        public float X { get; set; }
+        public float Y { get; set; }
+        public string Type { get; set; } = "";
+        public int GoldAmount { get; set; }
+        public int ItemDefinitionId { get; set; }
+        public int ItemLevel { get; set; }
+        public string Rarity { get; set; } = "common";
     }
 
     public sealed class NetworkStatsEnvelope

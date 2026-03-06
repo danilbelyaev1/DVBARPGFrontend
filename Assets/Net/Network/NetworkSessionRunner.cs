@@ -177,6 +177,18 @@ namespace DVBARPG.Net.Network
                     _runEndedFired = true;
                     RunEnded?.Invoke(false);
                 }
+                return;
+            }
+
+            if (command is CmdPickup pickup)
+            {
+                SendReliable(new CommandEnvelope
+                {
+                    Type = "pickup",
+                    Seq = NextSeq(),
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f),
+                    DropIndex = pickup.DropIndex
+                });
             }
         }
 
