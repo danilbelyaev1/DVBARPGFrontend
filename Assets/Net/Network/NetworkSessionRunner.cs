@@ -177,6 +177,18 @@ namespace DVBARPG.Net.Network
                     _runEndedFired = true;
                     RunEnded?.Invoke(false);
                 }
+                return;
+            }
+
+            if (command is CmdPickup pickup)
+            {
+                SendReliable(new CommandEnvelope
+                {
+                    Type = "pickup",
+                    Seq = NextSeq(),
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f),
+                    DropIndex = pickup.DropIndex
+                });
             }
         }
 
@@ -362,7 +374,7 @@ namespace DVBARPG.Net.Network
                             DebugLogWarning($"NetworkSessionRunner: server error {err.Code} {err.Message}");
                             if (string.Equals(err.Code, "auth_failed", StringComparison.OrdinalIgnoreCase))
                             {
-                                DebugLogWarning("NetworkSessionRunner: auth_failed — проверьте: 1) Laravel запущен и доступен с runtime-server (BACKEND_BASE_URL). 2) Токен валиден (тот же, что при выборе персонажа). 3) characterId/seasonId соответствуют выбранному персонажу и текущему сезону (логи «sending connect» выше).");
+                                DebugLogWarning("NetworkSessionRunner: auth_failed — runtime не смог провалидировать сессию через Laravel. Проверьте: 1) Laravel запущен; 2) у runtime-server задан BACKEND_BASE_URL и он доступен (из Docker — использовать host.docker.internal); 3) BACKEND_API_KEY совпадает с Laravel; 4) в логе «sending connect» TokenLength > 0, characterId/seasonId — от выбранного персонажа. Подробно: PROJECT_OVERVIEW.md, раздел «Устранение auth_failed».");
                             }
                         }
                         DebugLogWarning($"NetworkSessionRunner: full server error response: {json}");

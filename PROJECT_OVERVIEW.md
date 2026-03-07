@@ -107,8 +107,8 @@ Run/finish клиент не вызывает — это делает runtime п
 
 ## 7. UDP-протокол (клиент ↔ runtime :8081)
 
-- **Клиент → сервер:** команды в виде JSON: `connect`, `start`, `move`, `stop`, `slot_toggle`, `finish` (+ debug по необходимости). Модели: `NetworkProtocol.cs` (CommandEnvelope и др.).
-- **Сервер → клиент:** `hello`, `connect_ok`, `instance_start`, `snapshot`, `error`, `ack`, `net_stats`. Снапшот содержит Player (HP, позиция, флаги слотов), Monsters[], Projectiles[], Cooldowns.
+- **Клиент → сервер:** команды в виде JSON: `connect`, `start`, `move`, `stop`, `slot_toggle`, `finish`, `pickup` (DropIndex) (+ debug по необходимости). Модели: `NetworkProtocol.cs` (CommandEnvelope и др.).
+- **Сервер → клиент:** `hello`, `connect_ok`, `instance_start`, `snapshot`, `error`, `ack`, `net_stats`. Снапшот содержит Player (HP, позиция, флаги слотов), Monsters[], Projectiles[], Cooldowns, LootDrops[], PickedIndices[], Paused, LootWindowEndsAtUtc (окно лута после смерти).
 - Отправка команд: `ISessionService.Send(IClientCommand)`. Реализация: `NetworkSessionRunner.Send()` (CmdMove, CmdStop, CmdSlotToggle, CmdFinish, CmdDebug).
 - Завершение забега: по снапшоту с Player.Hp <= 0 вызывается RunEnded(true); при отправке finish — RunEnded(false). RunEndController обновляет RunResultState; RunResultsPanel показывает экран и кнопку «В меню».
 
@@ -130,11 +130,39 @@ Run/finish клиент не вызывает — это делает runtime п
 | Запросы к Laravel | `RuntimeMetaService.cs`, `BackendInventoryService.cs`, `BackendMarketService.cs`, `BackendCurrencyService.cs` |
 | Запросы к runtime HTTP | `SkillPresentationBootstrap.cs`, `MonsterCatalogClient.cs` |
 | UDP и снапшоты | `NetworkSessionRunner.cs`, `NetworkProtocol.cs`; репликация — `*Replicator.cs` в Game/Network и Game/Player |
+| Лут с монстров, дропы, подбор | `NetworkLootDropsReplicator.cs`, `CmdPickup.cs`; снапшот: LootDrops, PickedIndices; бэк: Runtime — roll на kill, Laravel — loot config, run/finish с killLog + pickedIndices |
 | Модели API (DTO) | `Assets/Core/Services/*.cs` (RuntimeMetaModels, InventoryModels, MarketModels), `NetworkProtocol.cs` |
 | Регистрация сервисов | `GameRoot.cs` → RegisterCoreServices |
 | Правила и ограничения | `AGENTS.md` |
 | Карта скриптов клиента | `AIMap.md` |
 | Концепция игры и боёвка | `AIConcept.md` |
+
+---
+
+## 9. Устранение auth_failed (Runtime UDP connect)
+
+Ошибка `auth_failed` приходит от **runtime-server**, когда он запрашивает у Laravel `POST /api/runtime/auth/validate` (токен + characterId + seasonId) и получает не успех (4xx/5xx или ответ без `ok: true`).
+
+**Что проверить по порядку:**
+
+1. **Laravel запущен и доступен с машины, где крутится runtime-server**  
+   - Если runtime в Docker, а Laravel на хосте: в `BACKEND_BASE_URL` у runtime указать адрес хоста (например `http://host.docker.internal:8000`), а не `http://127.0.0.1:8000`.  
+   - С хоста проверить: `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/runtime/seasons/current` (должен быть 401 без токена — это нормально).
+
+2. **Настройки runtime-server** (`appsettings.json` или переменные окружения):  
+   - `BACKEND_BASE_URL` — URL Laravel (например `http://127.0.0.1:8000`).  
+   - `BACKEND_API_KEY` — если в Laravel задан `BACKEND_API_KEY` (в `.env`: `BACKEND_API_KEY=...`), то то же значение должно быть в runtime.  
+   - `BACKEND_CONTRACT_VERSION` — обычно `1.1`; в Laravel в `RUNTIME_CONTRACT_VERSIONS` должна быть эта версия (по умолчанию `1.1`).
+
+3. **Токен и персонаж**  
+   - Клиент шлёт в connect тот же токен, что и при запросах к Laravel (логин/выбор персонажа). В логе Unity должно быть что-то вроде `sending connect CharacterId=... SeasonId=... TokenLength=...` — если `TokenLength=0`, токен пустой, Laravel вернёт 401.  
+   - В Laravel при `APP_ENV=local` любой непустой токен допускается (создаётся/находится пользователь). Если `APP_ENV` не `local`, токен должен совпадать с `users.api_token` для того пользователя, которому принадлежит выбранный персонаж.  
+   - characterId и seasonId должны соответствовать выбранному персонажу и текущему сезону (как в CharacterSelect); иначе Laravel может ответить 403/404.
+
+4. **Логи runtime-server**  
+   - При неудачной валидации в логах runtime обычно есть строка вроде `Connect auth failed session=... error=...` — там код/причина от Laravel (например `invalid_token`, `character_not_found`).
+
+Если после проверки пунктов 1–3 ошибка остаётся — посмотреть ответ Laravel (логи Laravel или временно логировать тело ответа в runtime при `!resp.IsSuccessStatusCode`) и сверить с пунктами выше.
 
 ---
 

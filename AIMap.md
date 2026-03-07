@@ -49,6 +49,9 @@
 - `Assets/Game/Network/FloatingDamageText.cs` — визуализация всплывающего урона.
 - `Assets/Game/Network/NetworkDamageFromSnapshots.cs` — вывод урона по снапшотам.
 - `Assets/Game/Network/NetworkMonstersReplicator.cs` — репликация монстров из снапшотов.
+- `Assets/Game/Network/NetworkLootDropsReplicator.cs` — репликация дропов лута (золото/предметы), подбор по клику, команда pickup.
+- `Assets/Game/Network/LootDropMarker.cs` — данные дропа на инстансе (Index, Type, Rarity, DisplayText); цвет рарности для тултипа.
+- `Assets/Game/Network/LootDropTooltipUI.cs` — рамка с названием предмета при наведении (стиль PoE), цвет по рарности.
 - `Assets/Game/Network/NetworkPlayerHpLabel.cs` — UI HP игрока.
 - `Assets/Game/Network/NetworkProjectilesReplicator.cs` — репликация снарядов.
 - `Assets/Game/Network/NetworkRunConnector.cs` — соединение с сервером из Run.
@@ -72,6 +75,7 @@
 - `Assets/Net/Commands/CmdStop.cs` — команда остановки.
 - `Assets/Net/Commands/CmdSlotToggle.cs` — команда включения/выключения слота.
 - `Assets/Net/Commands/CmdFinish.cs` — команда досрочного завершения забега (finish).
+- `Assets/Net/Commands/CmdPickup.cs` — команда подбора дропа по индексу (pickup).
 - `Assets/Net/Commands/CmdDebug.cs` — debug-команды для dev режима.
 
 ## Assets/Net/Local
