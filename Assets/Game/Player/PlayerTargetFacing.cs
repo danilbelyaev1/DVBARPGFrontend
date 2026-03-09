@@ -21,11 +21,14 @@ namespace DVBARPG.Game.Player
         [SerializeField] private float fallbackRange = 6f;
 
         private MovementAnimator _movementAnimator;
+        private PlayerAbilityAnimationDriver _abilityDriver;
 
         private void Awake()
         {
             _movementAnimator = GetComponent<MovementAnimator>();
             if (_movementAnimator == null) _movementAnimator = GetComponentInChildren<MovementAnimator>();
+            _abilityDriver = GetComponent<PlayerAbilityAnimationDriver>();
+            if (_abilityDriver == null) _abilityDriver = GetComponentInChildren<PlayerAbilityAnimationDriver>();
         }
 
         private void Update()
@@ -41,6 +44,17 @@ namespace DVBARPG.Game.Player
             if (target == null)
             {
                 ApplyNoTarget();
+                return;
+            }
+
+            // Не поворачивать к цели во время атаки — только между анимациями
+            if (_abilityDriver != null && _abilityDriver.IsPlayingAttackAnimation)
+            {
+                if (_movementAnimator != null)
+                {
+                    _movementAnimator.SetRotationLocked(true);
+                    _movementAnimator.SetRotateToMovement(false);
+                }
                 return;
             }
 

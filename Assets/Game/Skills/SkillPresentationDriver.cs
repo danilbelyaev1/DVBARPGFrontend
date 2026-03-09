@@ -1,4 +1,4 @@
-﻿using DVBARPG.Game.Animation;
+using DVBARPG.Game.Animation;
 using DVBARPG.Net.Network;
 using UnityEngine;
 
@@ -75,43 +75,46 @@ namespace DVBARPG.Game.Skills.Presentation
             }
         }
 
+        /// <summary>Анимации кастуются только для атакующего скилла и мувмент-скилла; support A/B не трогаем.</summary>
         private void OnSnapshot(SnapshotEnvelope snap)
         {
             if (snap == null) return;
 
             if (snap.Player.AttackAnimTriggered)
             {
-                PlaySkillEvent(attackSkillId, SkillVfxEventType.CastStart);
+                var cooldown = GetCooldownSec(snap.Cooldowns, attackSkillId);
+                PlaySkillEvent(attackSkillId, SkillVfxEventType.CastStart, cooldown);
             }
 
             if (snap.Player.MovementActive && !_lastMovementActive)
             {
                 var movementId = ResolveMovementSkillId(snap.Player.MovementSkillId);
-                PlaySkillEvent(movementId, SkillVfxEventType.MovementStart);
+                var cooldown = GetCooldownSec(snap.Cooldowns, movementId);
+                PlaySkillEvent(movementId, SkillVfxEventType.MovementStart, cooldown);
             }
             else if (!snap.Player.MovementActive && _lastMovementActive)
             {
                 var movementId = ResolveMovementSkillId(snap.Player.MovementSkillId);
-                PlaySkillEvent(movementId, SkillVfxEventType.MovementStop);
+                PlaySkillEvent(movementId, SkillVfxEventType.MovementStop, 0f);
             }
 
             _lastMovementActive = snap.Player.MovementActive;
         }
 
-        public void PlaySkillEvent(string skillId, SkillVfxEventType eventType)
+        public void PlaySkillEvent(string skillId, SkillVfxEventType eventType, float cooldownSec = 0f)
         {
             if (string.IsNullOrWhiteSpace(skillId)) return;
 
             if (catalog != null && catalog.TryGet(skillId, out var presentation) && presentation != null)
             {
-                PlayAnimation(presentation, skillId);
+                PlayAnimation(presentation, skillId, cooldownSec);
                 SpawnVfx(presentation, eventType);
                 return;
             }
 
             if (animationDriver != null)
             {
-                animationDriver.PlaySkill(skillId);
+                animationDriver.PlaySkill(skillId, cooldownSec);
             }
 
             if (logMissingSkills)
@@ -120,20 +123,24 @@ namespace DVBARPG.Game.Skills.Presentation
             }
         }
 
-        private void PlayAnimation(SkillPresentation presentation, string skillId)
+        private void PlayAnimation(SkillPresentation presentation, string skillId, float cooldownSec = 0f)
         {
             if (animationDriver == null || presentation == null) return;
 
             if (preferPresentationTrigger && !string.IsNullOrWhiteSpace(presentation.AnimationTrigger))
             {
-                // Всегда дергаем PlaySkill, чтобы выставить CastMode/UseSkill и поднять веса слоев.
-                animationDriver.PlaySkill(skillId);
-                // Дополнительно дергаем конкретный триггер, если он задан.
+                animationDriver.PlaySkill(skillId, cooldownSec);
                 animationDriver.PlayTrigger(presentation.AnimationTrigger);
                 return;
             }
 
-            animationDriver.PlaySkill(skillId);
+            animationDriver.PlaySkill(skillId, cooldownSec);
+        }
+
+        private static float GetCooldownSec(System.Collections.Generic.Dictionary<string, float> cooldowns, string skillId)
+        {
+            if (cooldowns == null || string.IsNullOrWhiteSpace(skillId)) return 0f;
+            return cooldowns.TryGetValue(skillId, out var sec) ? sec : 0f;
         }
 
         private void SpawnVfx(SkillPresentation presentation, SkillVfxEventType eventType)

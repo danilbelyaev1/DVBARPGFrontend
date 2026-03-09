@@ -66,6 +66,8 @@ namespace DVBARPG.Game.Animation
         {
             if (animator == null) animator = GetComponent<Animator>();
             if (animator == null) animator = GetComponentInChildren<Animator>();
+            if (animator != null)
+                animator.applyRootMotion = false; // поворот и сдвиг корня только из кода (PlayerTargetFacing, движение)
             _lastPos = transform.position;
         }
 

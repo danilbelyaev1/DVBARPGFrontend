@@ -3981,7 +3981,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a4b8baef9801f846aca57dad3c7ae71, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.NetworkLootDropsReplicator
-  lootDropPrefab: {fileID: 1652143759095011302, guid: e2c1ac940434a5242b54d72b66654687, type: 3}
+  lootDropPrefab: {fileID: 0}
   dropHeightOffset: 0.5
   raycastCamera: {fileID: 961739752}
   tooltipUI: {fileID: 1316124806}
@@ -10199,7 +10199,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40278aa4c6e63d244af33744f6fdd21e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Player.PlayerTargetFacing
-  rotationLerp: 30
+  rotationLerp: 60
   onlyWhenTargetInRange: 1
   rotateToMovementWhenNoTarget: 1
   fallbackRange: 6
@@ -10785,6 +10785,16 @@ MonoBehaviour:
   animator: {fileID: 1950763409}
   abilities: []
   fallbackTrigger: Attack
+  weaponDefaultTriggers:
+  - ClassId: vanguard
+    TriggerName: Slash
+  - ClassId: hunter
+    TriggerName: QuickShot
+  - ClassId: mystic
+    TriggerName: ArcBolt
+  attackStandingSkillIds: []
+  attackMovingSkillIds: []
+  attackAnySkillIds: []
   variantMode: 0
   controlAttackLayerWeight: 1
   attackLayerNames:
@@ -10793,8 +10803,13 @@ MonoBehaviour:
   - AttackAny
   attackLayerWeight: 1
   layerFadeSpeed: 6
+  isMovingParam: IsMoving
   castModeParam: CastMode
   useSkillParam: UseSkill
+  attackSpeedParam: AttackSpeed
+  minAttackSpeed: 0.25
+  maxAttackSpeed: 50
+  cooldownFractionForAnim: 0.98
 --- !u!114 &2090582955
 MonoBehaviour:
   m_ObjectHideFlags: 0
