@@ -66,6 +66,10 @@ namespace DVBARPG.Core.Services
 
         float BaseMoveSpeed { get; }
         void SetBaseMoveSpeed(float moveSpeed);
+
+        /// <summary>Текущие runtime‑скиллы (последний Snapshot из ValidateAuth) — для dev‑панелей и UI.</summary>
+        RuntimeSkillSnapshot[] ServerSkills { get; }
+        void SetServerSkills(RuntimeSkillSnapshot[] skills);
     }
 
     public interface ISessionService

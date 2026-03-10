@@ -17,6 +17,8 @@ namespace DVBARPG.Net.Network
     public sealed class NetworkSessionRunner : MonoBehaviour, ISessionService
     {
         public bool IsConnected { get; private set; }
+        /// <summary>Есть ли активный instance_start (игровой ран запущен).</summary>
+        public bool HasInstance => _instanceStarted;
         public event Action<SnapshotEnvelope> Snapshot;
         public event Action<int, Vector2, float> MoveSent;
         /// <summary>Вызывается один раз при завершении забега: true = смерть (HP=0), false = досрочный выход (finish).</summary>
@@ -112,13 +114,23 @@ namespace DVBARPG.Net.Network
                 {
                     Type = debug.Type,
                     Seq = seq,
-                    ClientTimeMs = (long)(Time.unscaledTime * 1000f)
+                    ClientTimeMs = (long)(Time.unscaledTime * 1000f),
+                    StatPatch = debug.StatPatch,
+                    Skills = debug.Skills,
+                    CombatLoadout = debug.CombatLoadout,
+                    ReplaceSkills = debug.ReplaceSkills
                 };
                 if (debug.HasPosition)
                 {
                     env.X = debug.Position.x;
                     env.Y = debug.Position.y;
                 }
+
+                DebugLog($"NetworkSessionRunner: sending debug command type={env.Type} " +
+                         $"statPatchCount={(env.StatPatch != null ? env.StatPatch.Count : 0)} " +
+                         $"skillsCount={(env.Skills != null ? env.Skills.Count : 0)} " +
+                         $"hasLoadout={env.CombatLoadout != null} replaceSkills={env.ReplaceSkills}");
+
                 SendReliable(env);
                 return;
             }
