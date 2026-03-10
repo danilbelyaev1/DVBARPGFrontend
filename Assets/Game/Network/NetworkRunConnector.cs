@@ -52,6 +52,12 @@ namespace DVBARPG.Game.Network
                     yield return null;
                 }
 
+                Debug.Log($"[DevDebug] ValidateAuth done. ok={result?.Ok} " +
+                          $"error={result?.Error} " +
+                          $"hasLoadout={result?.Loadout != null} " +
+                          $"skillsCount={result?.Skills?.Length ?? 0} " +
+                          $"moveSpeed={result?.MoveSpeed}");
+
                 if (result != null && result.Ok && result.Loadout != null)
                 {
                     profile.SetServerLoadout(result.Loadout);
@@ -64,6 +70,11 @@ namespace DVBARPG.Game.Network
                 if (result != null && result.MoveSpeed > 0f)
                 {
                     profile.SetBaseMoveSpeed(result.MoveSpeed);
+                }
+
+                if (result != null && result.Skills != null && result.Skills.Length > 0)
+                {
+                    profile.SetServerSkills(result.Skills);
                 }
             }
 
