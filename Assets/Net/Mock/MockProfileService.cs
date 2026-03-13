@@ -12,6 +12,7 @@ namespace DVBARPG.Net.Mock
         public RuntimeLoadout ServerLoadout { get; private set; }
         public float BaseMoveSpeed { get; private set; }
         public RuntimeSkillSnapshot[] ServerSkills { get; private set; } = System.Array.Empty<RuntimeSkillSnapshot>();
+        public RuntimeProgressionSnapshot Progression { get; private set; }
 
         public void SetAuth(AuthSession session)
         {
@@ -62,6 +63,12 @@ namespace DVBARPG.Net.Mock
         {
             ServerSkills = skills ?? System.Array.Empty<RuntimeSkillSnapshot>();
             UnityEngine.Debug.Log($"[DevDebug] SetServerSkills: count={ServerSkills.Length}");
+        }
+
+        public void SetProgression(RuntimeProgressionSnapshot progression)
+        {
+            Progression = progression;
+            UnityEngine.Debug.Log($"[DevDebug] SetProgression: level={progression?.Level ?? 0} xpTotal={progression?.XpTotal ?? 0}");
         }
     }
 }

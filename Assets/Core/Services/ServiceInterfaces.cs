@@ -17,6 +17,8 @@ namespace DVBARPG.Core.Services
         void FetchCurrentSeason(AuthSession session, System.Action<RuntimeSeasonSnapshot> onDone);
         void FetchCharacters(AuthSession session, System.Action<RuntimeCharactersSnapshot> onDone);
         void ValidateAuth(AuthSession session, string characterId, string seasonId, System.Action<RuntimeAuthSnapshot> onDone);
+        /// <summary>Получить профиль персонажа (уровень/XP) перед/после рана.</summary>
+        void FetchProfile(AuthSession session, string characterId, string seasonId, System.Action<RuntimeProfileSnapshot> onDone);
         void SetLoadout(AuthSession session, string characterId, string seasonId, RuntimeLoadoutPayload loadout, System.Action<SetLoadoutResult> onDone);
         void AllocateTalent(AuthSession session, string characterId, string seasonId, string talentCode, string requestId, System.Action<AllocateTalentResult> onDone);
         /// <summary>Создание персонажа: имя, класс (vanguard/hunter/mystic), пол (male/female), опционально внешность.</summary>
@@ -70,6 +72,10 @@ namespace DVBARPG.Core.Services
         /// <summary>Текущие runtime‑скиллы (последний Snapshot из ValidateAuth) — для dev‑панелей и UI.</summary>
         RuntimeSkillSnapshot[] ServerSkills { get; }
         void SetServerSkills(RuntimeSkillSnapshot[] skills);
+
+        /// <summary>Прогресс персонажа (уровень и суммарный XP до текущего рана).</summary>
+        RuntimeProgressionSnapshot Progression { get; }
+        void SetProgression(RuntimeProgressionSnapshot progression);
     }
 
     public interface ISessionService

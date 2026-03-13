@@ -5,8 +5,10 @@ using DVBARPG.Core.Services;
 using DVBARPG.Game.Combat;
 using DVBARPG.Game.Player;
 using DVBARPG.Net.Network;
+using DVBARPG.UI.Skills;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 namespace DVBARPG.UI.Run
 {
@@ -23,6 +25,14 @@ namespace DVBARPG.UI.Run
         [SerializeField] private Button supportAButton;
         [Tooltip("Кнопка поддержки B (вкл/выкл).")]
         [SerializeField] private Button supportBButton;
+
+        [Header("Иконки скиллов (привязка к лоадауту)")]
+        [Tooltip("Иконка скилла атаки (Resources/SkillIcons/{attackSkillId}).")]
+        [SerializeField] private Image attackIcon;
+        [Tooltip("Иконка скилла поддержки A.")]
+        [SerializeField] private Image supportAIcon;
+        [Tooltip("Иконка скилла поддержки B.")]
+        [SerializeField] private Image supportBIcon;
 
         [Header("Визуал")]
         [Tooltip("Фон атаки (меняем цвет по состоянию).")]
@@ -44,11 +54,11 @@ namespace DVBARPG.UI.Run
         [Tooltip("Заливка кулдауна поддержки A.")]
         [SerializeField] private Image supportACooldownFill;
         [Tooltip("Текст кулдауна поддержки A.")]
-        [SerializeField] private Text supportACooldownText;
+        [SerializeField] private TextMeshProUGUI supportACooldownText;
         [Tooltip("Заливка кулдауна поддержки B.")]
         [SerializeField] private Image supportBCooldownFill;
         [Tooltip("Текст кулдауна поддержки B.")]
-        [SerializeField] private Text supportBCooldownText;
+        [SerializeField] private TextMeshProUGUI supportBCooldownText;
 
         [Header("Loadout (сервер)")]
         [Tooltip("Текст для отображения ServerLoadout.")]
@@ -69,7 +79,9 @@ namespace DVBARPG.UI.Run
 
         private void OnEnable()
         {
-            var session = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.ISessionService>();
+            var root = DVBARPG.Core.GameRoot.Instance;
+            if (root == null || root.Services == null) return;
+            if (!root.Services.TryGet<DVBARPG.Core.Services.ISessionService>(out var session)) return;
             _net = session as NetworkSessionRunner;
             if (_net != null)
             {
@@ -212,7 +224,7 @@ namespace DVBARPG.UI.Run
             return remaining;
         }
 
-        private void ApplyCooldown(Image fill, Text label, float remaining, float max)
+        private void ApplyCooldown(Image fill, TextMeshProUGUI label, float remaining, float max)
         {
             if (fill != null)
             {
@@ -267,6 +279,14 @@ namespace DVBARPG.UI.Run
             return !string.IsNullOrWhiteSpace(loadout.SupportASkillId) || !string.IsNullOrWhiteSpace(loadout.SupportBSkillId);
         }
 
+        private void ApplyLoadoutIcons(RuntimeLoadout loadout)
+        {
+            if (loadout == null) return;
+            SkillIconProvider.ApplyIcon(attackIcon, loadout.AttackSkillId);
+            SkillIconProvider.ApplyIcon(supportAIcon, loadout.SupportASkillId);
+            SkillIconProvider.ApplyIcon(supportBIcon, loadout.SupportBSkillId);
+        }
+
         private void RefreshFromServerLoadout()
         {
             var profile = GameRoot.Instance.Services.Get<IProfileService>();
@@ -281,6 +301,8 @@ namespace DVBARPG.UI.Run
 
             _lastLoadoutSignature = signature;
             ResolveSkillIdsFromServer();
+
+            ApplyLoadoutIcons(loadout);
 
             if (serverLoadoutText == null) return;
             var label = loadout == null

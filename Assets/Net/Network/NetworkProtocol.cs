@@ -118,6 +118,10 @@ namespace DVBARPG.Net.Network
         public long ServerTimeMs { get; set; }
         public int AckSeq { get; set; }
         public System.Collections.Generic.Dictionary<string, float> Cooldowns { get; set; }
+        /// <summary>Сколько XP заработано в этом ране (с начала инстанса).</summary>
+        public int RunXpTotal { get; set; }
+        /// <summary>Сколько мобов убито в этом инстансе.</summary>
+        public int RunKills { get; set; }
         /// <summary>Игрок мёртв — открыто окно лута до LootWindowEndsAtUtc.</summary>
         public bool Paused { get; set; }
         /// <summary>Момент окончания окна подбора лута (UTC).</summary>

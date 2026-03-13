@@ -20,6 +20,9 @@ namespace DVBARPG.Net.Network
         [SerializeField] private string contractVersion = "1.1";
         [Tooltip("Таймаут запросов (сек).")]
         [SerializeField] private int timeoutSec = 10;
+        [Header("Debug")]
+        [Tooltip("Логировать все HTTP‑запросы/ответы в dev‑режиме.")]
+        [SerializeField] private bool logHttpTraffic = true;
 
         public void FetchCurrentSeason(AuthSession session, Action<RuntimeSeasonSnapshot> onDone)
         {
@@ -34,6 +37,11 @@ namespace DVBARPG.Net.Network
         public void ValidateAuth(AuthSession session, string characterId, string seasonId, Action<RuntimeAuthSnapshot> onDone)
         {
             StartCoroutine(WithOverlay(ValidateAuthRoutine(session, characterId, seasonId, onDone)));
+        }
+
+        public void FetchProfile(AuthSession session, string characterId, string seasonId, Action<RuntimeProfileSnapshot> onDone)
+        {
+            StartCoroutine(WithOverlay(FetchProfileRoutine(session, characterId, seasonId, onDone)));
         }
 
         public void SetLoadout(AuthSession session, string characterId, string seasonId, RuntimeLoadoutPayload loadout, Action<SetLoadoutResult> onDone)
@@ -82,7 +90,7 @@ namespace DVBARPG.Net.Network
 
             using var req = UnityWebRequest.Get(url);
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "GET", url, null);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -117,7 +125,7 @@ namespace DVBARPG.Net.Network
 
             using var req = UnityWebRequest.Get(url);
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "GET", url, null);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -187,7 +195,7 @@ namespace DVBARPG.Net.Network
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "POST", url, json);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -212,13 +220,76 @@ namespace DVBARPG.Net.Network
                         Error = response.Error,
                         Loadout = ParseCombatLoadout(response.CombatLoadout),
                         Skills = MapSkills(response.Skills),
-                        MoveSpeed = response.Stats != null ? response.Stats.MoveSpeed : 0f
+                        MoveSpeed = response.Stats != null ? response.Stats.MoveSpeed : 0f,
+                        Level = response.Level,
+                        XpTotal = response.XpTotal,
+                        XpToNextLevel = response.XpToNextLevel,
+                        UnspentTalentPoints = response.UnspentTalentPoints
                     };
                 }
             }
             catch (Exception)
             {
                 snapshot = new RuntimeAuthSnapshot { Ok = false, Error = "parse_error" };
+            }
+
+            onDone?.Invoke(snapshot);
+        }
+
+        private IEnumerator FetchProfileRoutine(AuthSession session, string characterId, string seasonId, Action<RuntimeProfileSnapshot> onDone)
+        {
+            var url = BuildUrl($"/api/runtime/characters/{characterId}/profile?seasonId={seasonId}");
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                onDone?.Invoke(new RuntimeProfileSnapshot { Ok = false, Error = "missing_backend_url" });
+                yield break;
+            }
+
+            using var req = UnityWebRequest.Get(url);
+            ApplyHeaders(req, session);
+            yield return SendWithLogging(req, "GET", url, null);
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                onDone?.Invoke(new RuntimeProfileSnapshot { Ok = false, Error = req.error });
+                yield break;
+            }
+
+            RuntimeProfileSnapshot snapshot;
+            try
+            {
+                var body = req.downloadHandler.text;
+                var response = JsonConvert.DeserializeObject<ProfileResponse>(body);
+                if (response == null)
+                {
+                    snapshot = new RuntimeProfileSnapshot { Ok = false, Error = "empty_response" };
+                }
+                else
+                {
+                    RuntimeProgressionSnapshot progression = null;
+                    if (response.Progression != null)
+                    {
+                        progression = new RuntimeProgressionSnapshot
+                        {
+                            Level = response.Progression.Level,
+                            XpTotal = response.Progression.XpTotal,
+                            XpToNextLevel = response.Progression.XpToNextLevel,
+                            XpCurrentLevelBase = response.Progression.XpCurrentLevelBase,
+                            XpNextLevelTotal = response.Progression.XpNextLevelTotal
+                        };
+                    }
+
+                    snapshot = new RuntimeProfileSnapshot
+                    {
+                        Ok = response.Ok,
+                        Error = response.Error,
+                        Progression = progression
+                    };
+                }
+            }
+            catch (Exception)
+            {
+                snapshot = new RuntimeProfileSnapshot { Ok = false, Error = "parse_error" };
             }
 
             onDone?.Invoke(snapshot);
@@ -254,7 +325,7 @@ namespace DVBARPG.Net.Network
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "PUT", url, json);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -294,7 +365,7 @@ namespace DVBARPG.Net.Network
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "POST", url, json);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -339,7 +410,7 @@ namespace DVBARPG.Net.Network
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("Content-Type", "application/json");
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "POST", url, json);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -377,7 +448,7 @@ namespace DVBARPG.Net.Network
                 downloadHandler = new DownloadHandlerBuffer()
             };
             ApplyHeaders(req, session);
-            yield return req.SendWebRequest();
+            yield return SendWithLogging(req, "DELETE", url, null);
 
             if (req.result != UnityWebRequest.Result.Success)
             {
@@ -424,6 +495,39 @@ namespace DVBARPG.Net.Network
             }
         }
 
+        private IEnumerator SendWithLogging(UnityWebRequest req, string method, string url, string body)
+        {
+            if (logHttpTraffic)
+            {
+                var shortBody = body;
+                if (!string.IsNullOrEmpty(shortBody) && shortBody.Length > 512)
+                {
+                    shortBody = shortBody.Substring(0, 512) + "...";
+                }
+
+                var apiKeyLabel = string.IsNullOrWhiteSpace(apiKey) ? "<none>" : "***";
+                Debug.Log($"[HTTP] {method} {url}\n" +
+                          $"Headers: Authorization=Bearer ****, X-Api-Key={apiKeyLabel}, Contract={contractVersion}\n" +
+                          $"Body: {shortBody}");
+            }
+
+            yield return req.SendWebRequest();
+
+            if (logHttpTraffic)
+            {
+                var text = req.downloadHandler != null ? req.downloadHandler.text : "";
+                string shortText = text;
+                if (!string.IsNullOrEmpty(shortText) && shortText.Length > 1024)
+                {
+                    shortText = shortText.Substring(0, 1024) + "...";
+                }
+
+                Debug.Log($"[HTTP] RESPONSE {method} {url}\n" +
+                          $"Status: {(int)req.responseCode} {req.result}\n" +
+                          $"Body: {shortText}");
+            }
+        }
+
 
         private sealed class SeasonResponse
         {
@@ -461,6 +565,26 @@ namespace DVBARPG.Net.Network
             [JsonProperty("combatLoadout")] public JObject CombatLoadout { get; set; }
             [JsonProperty("skills")] public SkillRow[] Skills { get; set; }
             [JsonProperty("stats")] public StatsRow Stats { get; set; }
+            [JsonProperty("level")] public int Level { get; set; }
+            [JsonProperty("xpTotal")] public int XpTotal { get; set; }
+            [JsonProperty("xpToNextLevel")] public int XpToNextLevel { get; set; }
+            [JsonProperty("unspentTalentPoints")] public int UnspentTalentPoints { get; set; }
+        }
+
+        private sealed class ProfileResponse
+        {
+            [JsonProperty("ok")] public bool Ok { get; set; }
+            [JsonProperty("error")] public string Error { get; set; }
+            [JsonProperty("progression")] public ProgressionRow Progression { get; set; }
+        }
+
+        private sealed class ProgressionRow
+        {
+            [JsonProperty("level")] public int Level { get; set; }
+            [JsonProperty("xpTotal")] public int XpTotal { get; set; }
+            [JsonProperty("xpToNextLevel")] public int XpToNextLevel { get; set; }
+            [JsonProperty("xpCurrentLevelBase")] public int XpCurrentLevelBase { get; set; }
+            [JsonProperty("xpNextLevelTotal")] public int XpNextLevelTotal { get; set; }
         }
 
         private sealed class SkillRow

@@ -41,6 +41,33 @@ namespace DVBARPG.Core.Services
         public RuntimeLoadout Loadout;
         public RuntimeSkillSnapshot[] Skills = Array.Empty<RuntimeSkillSnapshot>();
         public float MoveSpeed;
+        public int Level;
+        public int XpTotal;
+        public int XpToNextLevel;
+        public int UnspentTalentPoints;
+    }
+
+    /// <summary>Прогресс персонажа из Laravel-профиля.</summary>
+    public sealed class RuntimeProgressionSnapshot
+    {
+        /// <summary>Текущий уровень (серверная правда).</summary>
+        public int Level;
+        /// <summary>Суммарный XP (как в progression.xpTotal на бэке).</summary>
+        public int XpTotal;
+        /// <summary>Сколько XP осталось до следующего уровня.</summary>
+        public int XpToNextLevel;
+        /// <summary>XP, необходимый для входа в текущий уровень (нижний порог).</summary>
+        public int XpCurrentLevelBase;
+        /// <summary>Глобальный XP, необходимый для следующего уровня (верхний порог).</summary>
+        public int XpNextLevelTotal;
+    }
+
+    /// <summary>Снимок профиля персонажа (уровень/опыт и т.п.).</summary>
+    public sealed class RuntimeProfileSnapshot
+    {
+        public bool Ok;
+        public string Error;
+        public RuntimeProgressionSnapshot Progression;
     }
 
     public sealed class RuntimeSkillSnapshot

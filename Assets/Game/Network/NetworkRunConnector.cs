@@ -34,9 +34,36 @@ namespace DVBARPG.Game.Network
                 yield return null;
             }
 
+            // Перед стартом рана получаем профиль (уровень/XP) для HUD.
+            var meta = DVBARPG.Core.GameRoot.Instance.Services.Get<IRuntimeMetaService>();
+            if (meta != null)
+            {
+                bool profileDone = false;
+                RuntimeProfileSnapshot profileSnapshot = null;
+                meta.FetchProfile(profile.CurrentAuth, profile.SelectedCharacterId, profile.CurrentSeasonId, snapshot =>
+                {
+                    profileSnapshot = snapshot;
+                    profileDone = true;
+                });
+
+                while (!profileDone)
+                {
+                    yield return null;
+                }
+
+                if (profileSnapshot != null && profileSnapshot.Ok && profileSnapshot.Progression != null)
+                {
+                    profile.SetProgression(profileSnapshot.Progression);
+                }
+                else
+                {
+                    Debug.LogWarning($"[DevDebug] FetchProfile failed: ok={profileSnapshot?.Ok} error={profileSnapshot?.Error}");
+                }
+            }
+
             // Всегда подставляем выбранного персонажа и сезон в сессию (на случай если CharacterSelect не обновил CurrentAuth).
             var auth = BuildAuthForRun(profile);
-            var meta = DVBARPG.Core.GameRoot.Instance.Services.Get<IRuntimeMetaService>();
+            meta = DVBARPG.Core.GameRoot.Instance.Services.Get<IRuntimeMetaService>();
             if (meta != null)
             {
                 bool done = false;

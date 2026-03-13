@@ -12,6 +12,7 @@ using UnityEngine.Networking;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using TMPro;
+using DVBARPG.UI.Skills;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 namespace DVBARPG.UI.Dev
@@ -86,6 +87,8 @@ namespace DVBARPG.UI.Dev
             public TMP_Dropdown skillDropdown;
             [Tooltip("Опциональное текстовое поле с id, если dropdown не используется.")]
             public TMP_InputField skillId;
+            [Tooltip("Иконка скилла (Resources/SkillIcons/{skillId}).")]
+            public Image skillIcon;
             public TMP_InputField level;
             [Tooltip("Доп. JSON‑модификаторы (projectile.count, base_damage.mult и т.п.).")]
             public TMP_InputField modifiersJson;
@@ -168,6 +171,45 @@ namespace DVBARPG.UI.Dev
             {
                 StartCoroutine(LoadDebugPlayerSnapshotRoutine());
             }
+
+            SubscribeSkillSlotDropdowns();
+        }
+
+        private void SubscribeSkillSlotDropdowns()
+        {
+            if (skillSlots == null) return;
+            for (int i = 0; i < skillSlots.Length; i++)
+            {
+                var slot = skillSlots[i];
+                if (slot?.skillDropdown == null) continue;
+                slot.skillDropdown.onValueChanged.AddListener(OnSkillSlotDropdownChanged);
+            }
+        }
+
+        private void OnSkillSlotDropdownChanged(int _)
+        {
+            if (skillSlots == null) return;
+            for (int i = 0; i < skillSlots.Length; i++)
+            {
+                var slot = skillSlots[i];
+                if (slot?.skillDropdown == null) continue;
+                RefreshSkillSlotIcon(slot);
+            }
+        }
+
+        private static void RefreshSkillSlotIcon(SkillSlotUi slot)
+        {
+            if (slot == null) return;
+            string id = null;
+            if (slot.skillDropdown != null && slot.skillDropdown.options != null && slot.skillDropdown.options.Count > 0)
+            {
+                var idx = slot.skillDropdown.value;
+                if (idx > 0 && idx < slot.skillDropdown.options.Count)
+                    id = slot.skillDropdown.options[idx].text?.Trim();
+            }
+            if (string.IsNullOrWhiteSpace(id) && slot.skillId != null)
+                id = slot.skillId.text?.Trim();
+            SkillIconProvider.ApplyIcon(slot.skillIcon, id);
         }
 
         private void OnDisable()
@@ -598,6 +640,8 @@ namespace DVBARPG.UI.Dev
                         slot.level.text = "1";
                     }
                 }
+
+                SkillIconProvider.ApplyIcon(slot.skillIcon, skillId);
             }
 
             if (loadout != null)
@@ -828,6 +872,8 @@ namespace DVBARPG.UI.Dev
                         // ignore
                     }
                 }
+
+                SkillIconProvider.ApplyIcon(slot.skillIcon, s.SkillId);
             }
 
             for (int i = 0; i < skillSlots.Length && i < skills.Length && i < 3; i++)

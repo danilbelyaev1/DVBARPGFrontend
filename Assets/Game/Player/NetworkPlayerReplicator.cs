@@ -42,7 +42,9 @@ namespace DVBARPG.Game.Player
         private void OnEnable()
         {
             PlayerTransform = transform;
-            var session = DVBARPG.Core.GameRoot.Instance.Services.Get<DVBARPG.Core.Services.ISessionService>();
+            var root = DVBARPG.Core.GameRoot.Instance;
+            if (root == null || root.Services == null) return;
+            if (!root.Services.TryGet<DVBARPG.Core.Services.ISessionService>(out var session)) return;
             _net = session as NetworkSessionRunner;
             if (_net != null)
             {
