@@ -358,7 +358,7 @@ namespace DVBARPG.Game.Animation
                 if (_pendingAttackSpeed && _lastPlayedStateHash != 0 && state.shortNameHash == _lastPlayedStateHash && !animator.IsInTransition(idx))
                 {
                     var clipInfo = animator.GetCurrentAnimatorClipInfo(idx);
-                    if (clipInfo != null && clipInfo.Length > 0 && clipInfo[0].clip != null)
+                    if (clipInfo != null && clipInfo.Length > 0 && clipInfo[0].clip != null && _attackSpeedHash != 0 && HasFloatParam(_attackSpeedHash))
                     {
                         var clipLen = clipInfo[0].clip.length;
                         var cooldown = Mathf.Max(0.001f, _pendingCooldownSec) * Mathf.Max(0.01f, cooldownFractionForAnim);
@@ -402,6 +402,17 @@ namespace DVBARPG.Game.Animation
             {
                 var p = animator.GetParameter(i);
                 if (p.name == name && p.type == AnimatorControllerParameterType.Float) return true;
+            }
+            return false;
+        }
+
+        private bool HasFloatParam(int nameHash)
+        {
+            if (animator == null) return false;
+            for (int i = 0; i < animator.parameterCount; i++)
+            {
+                var p = animator.GetParameter(i);
+                if (p.nameHash == nameHash && p.type == AnimatorControllerParameterType.Float) return true;
             }
             return false;
         }

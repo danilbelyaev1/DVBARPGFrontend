@@ -62,6 +62,20 @@ namespace DVBARPG.Game.Animation
             rotateToMovement = enabled;
         }
 
+        private bool HasParam(int nameHash, AnimatorControllerParameterType type)
+        {
+            if (animator == null) return false;
+            for (int i = 0; i < animator.parameterCount; i++)
+            {
+                var p = animator.GetParameter(i);
+                if (p.nameHash == nameHash && p.type == type) return true;
+            }
+            return false;
+        }
+
+        private bool HasFloatParam(int nameHash) => HasParam(nameHash, AnimatorControllerParameterType.Float);
+        private bool HasBoolParam(int nameHash) => HasParam(nameHash, AnimatorControllerParameterType.Bool);
+
         private void Awake()
         {
             if (animator == null) animator = GetComponent<Animator>();
@@ -97,7 +111,7 @@ namespace DVBARPG.Game.Animation
             {
                 _smoothedSpeed = 0f;
                 _isMoving = false;
-                animator.SetBool(IsMovingHash, _isMoving);
+                if (HasBoolParam(IsMovingHash)) animator.SetBool(IsMovingHash, _isMoving);
             }
             else
             {
@@ -120,15 +134,13 @@ namespace DVBARPG.Game.Animation
                 }
             }
 
-            // Только флаг движения, без параметра скорости.
-            animator.SetBool(IsMovingHash, _isMoving);
+            if (HasBoolParam(IsMovingHash)) animator.SetBool(IsMovingHash, _isMoving);
             }
 
-                // Параметры направления для Blend Tree.
-                animator.SetFloat(MoveXHash, _smoothedDir.x);
-                animator.SetFloat(MoveYHash, _smoothedDir.y);
-                var speedParam = baseMoveSpeed > 0.001f ? speedAtBase * (_smoothedSpeed / baseMoveSpeed) : speedAtBase;
-                animator.SetFloat(SpeedHash, Mathf.Clamp(speedParam, speedAtBase, maxSpeedParam));
+                // Параметры направления для Blend Tree (только если есть в Controller).
+                if (HasFloatParam(SpeedHash)) animator.SetFloat(SpeedHash, Mathf.Clamp(baseMoveSpeed > 0.001f ? speedAtBase * (_smoothedSpeed / baseMoveSpeed) : speedAtBase, speedAtBase, maxSpeedParam));
+                if (HasFloatParam(MoveXHash)) animator.SetFloat(MoveXHash, _smoothedDir.x);
+                if (HasFloatParam(MoveYHash)) animator.SetFloat(MoveYHash, _smoothedDir.y);
 
                 if (rotateToMovement && !_rotationLocked && delta.sqrMagnitude > 0.0001f)
                 {

@@ -63,3 +63,5 @@ Assets/AddressableAssetsData/*/*.bin*
 
 # RuntimeServerARPG  — раскомментируй, если не хочешь коммитить бэк в этот репо
 AGENTS.md
+
+Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset
