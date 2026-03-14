@@ -18,6 +18,8 @@
 - `Assets/Core/Services/MarketModels.cs` — DTO маркета и валюты (MarketListingDto, CurrencyBalanceResult и т.д.).
 - `Assets/Core/Services/ServiceInterfaces.cs` — интерфейсы сервисов (Auth/Profile/Session и т.д.).
 - `Assets/Core/Services/ServiceRegistry.cs` — простой DI-контейнер.
+- `Assets/Core/Services/CharacterAppearanceData.cs` — DTO внешности персонажа (SpeciesId, Parts, BlendShapes, FaceBlendShapes, ColorPresetId) для API и Sidekick.
+- `Assets/Core/Services/ClassSidekickSpeciesMap.cs` — маппинг classId → имя вида Sidekick (hunter→Elf и т.д.).
 
 ## Assets/Game/Animation
 - `Assets/Game/Animation/PlayerAbilityAnimationDriver.cs` — анимации способностей игрока (SkillId -> Trigger).
@@ -26,6 +28,10 @@
 
 ## Assets/Game/Camera
 - `Assets/Game/Camera/TopDownFollowCamera.cs` — верхняя камера с зумом и следованием.
+
+## Assets/Game/CharacterCreation
+- `Assets/Game/CharacterCreation/SidekickAppearanceBuilder.cs` — сборка GameObject персонажа из CharacterAppearanceData (части, блендшейпы, морфы лица, цветовой пресет) для превью и Run.
+- `Assets/Game/CharacterCreation/PreviewRotateOnDrag.cs` — вращение объекта по зажатой ПКМ (для превью в CharacterCreate).
 
 ## Assets/Game/Combat
 - `Assets/Game/Combat/CombatSlots.cs` — константы слотов боя (attack/supportA/supportB).

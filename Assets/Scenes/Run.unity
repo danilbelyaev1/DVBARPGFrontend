@@ -1132,6 +1132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23199037511e43f9aa690294afe11761, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.NetworkPlayerHpLabel
+  hpSlider: {fileID: 0}
   targetText: {fileID: 193462717}
 --- !u!1 &99397769
 GameObject:
@@ -17312,6 +17313,7 @@ MonoBehaviour:
   skillSlots:
   - skillDropdown: {fileID: 1121684950}
     skillId: {fileID: 0}
+    skillIcon: {fileID: 0}
     level: {fileID: 261644699}
     modifiersJson: {fileID: 926494350}
     tagSpell: {fileID: 0}
@@ -17319,6 +17321,7 @@ MonoBehaviour:
     tagMelee: {fileID: 0}
   - skillDropdown: {fileID: 782072937}
     skillId: {fileID: 0}
+    skillIcon: {fileID: 0}
     level: {fileID: 333814694}
     modifiersJson: {fileID: 1909914665}
     tagSpell: {fileID: 0}
@@ -17326,6 +17329,7 @@ MonoBehaviour:
     tagMelee: {fileID: 0}
   - skillDropdown: {fileID: 354730925}
     skillId: {fileID: 0}
+    skillIcon: {fileID: 0}
     level: {fileID: 722496025}
     modifiersJson: {fileID: 14924060}
     tagSpell: {fileID: 0}
@@ -24578,7 +24582,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ddd59ed791d462c9133695ec2c9ef47, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Player.PlayerInputController
-  inputMode: 1
+  inputMode: 0
   moveSpeed: 4.5
   viewCamera: {fileID: 961739752}
   joystick: {fileID: 0}
@@ -26594,6 +26598,9 @@ MonoBehaviour:
   attackButton: {fileID: 2100000014}
   supportAButton: {fileID: 2100000034}
   supportBButton: {fileID: 2100000054}
+  attackIcon: {fileID: 0}
+  supportAIcon: {fileID: 0}
+  supportBIcon: {fileID: 0}
   attackImage: {fileID: 2100000013}
   supportAImage: {fileID: 2100000033}
   supportBImage: {fileID: 2100000053}
@@ -26602,9 +26609,9 @@ MonoBehaviour:
   supportASkillId: fireball
   supportBSkillId: ice_nova
   supportACooldownFill: {fileID: 2100000073}
-  supportACooldownText: {fileID: 2100000083}
+  supportACooldownText: {fileID: 0}
   supportBCooldownFill: {fileID: 2100000093}
-  supportBCooldownText: {fileID: 2100000103}
+  supportBCooldownText: {fileID: 0}
   serverLoadoutText: {fileID: 0}
 --- !u!1 &2100000010
 GameObject:

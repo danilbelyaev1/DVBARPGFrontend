@@ -23,6 +23,8 @@ namespace DVBARPG.Core.Services
         public string Name;
         /// <summary>Пол с бэка: male / female.</summary>
         public string Gender;
+        /// <summary>Внешность (Sidekick). JSON-объект или null.</summary>
+        public object Appearance;
         public string[] Seasons = Array.Empty<string>();
     }
 

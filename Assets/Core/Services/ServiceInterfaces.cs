@@ -21,8 +21,8 @@ namespace DVBARPG.Core.Services
         void FetchProfile(AuthSession session, string characterId, string seasonId, System.Action<RuntimeProfileSnapshot> onDone);
         void SetLoadout(AuthSession session, string characterId, string seasonId, RuntimeLoadoutPayload loadout, System.Action<SetLoadoutResult> onDone);
         void AllocateTalent(AuthSession session, string characterId, string seasonId, string talentCode, string requestId, System.Action<AllocateTalentResult> onDone);
-        /// <summary>Создание персонажа: имя, класс (vanguard/hunter/mystic), пол (male/female), опционально внешность.</summary>
-        void CreateCharacter(AuthSession session, string name, string classId, string gender, System.Action<CreateCharacterResult> onDone);
+        /// <summary>Создание персонажа: имя, класс, пол, опционально внешность (object/CharacterAppearanceData — сериализуется в JSON).</summary>
+        void CreateCharacter(AuthSession session, string name, string classId, string gender, object appearance, System.Action<CreateCharacterResult> onDone);
         /// <summary>Удаление персонажа (только своего).</summary>
         void DeleteCharacter(AuthSession session, string characterId, System.Action<DeleteCharacterResult> onDone);
     }

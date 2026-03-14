@@ -54,9 +54,10 @@ namespace DVBARPG.Net.Network
             StartCoroutine(WithOverlay(AllocateTalentRoutine(session, characterId, seasonId, talentCode, requestId, onDone)));
         }
 
-        public void CreateCharacter(AuthSession session, string name, string classId, string gender, Action<CreateCharacterResult> onDone)
+        public void CreateCharacter(AuthSession session, string name, string classId, string gender, object appearance, Action<CreateCharacterResult> onDone)
         {
-            StartCoroutine(WithOverlay(CreateCharacterRoutine(session, name, classId, gender, onDone)));
+            var appearanceJson = appearance == null ? null : (appearance is JObject jo ? jo : JObject.FromObject(appearance));
+            StartCoroutine(WithOverlay(CreateCharacterRoutine(session, name, classId, gender, appearanceJson, onDone)));
         }
 
         public void DeleteCharacter(AuthSession session, string characterId, Action<DeleteCharacterResult> onDone)
@@ -153,6 +154,7 @@ namespace DVBARPG.Net.Network
                             Id = list[i].Id,
                             Name = list[i].Name,
                             Gender = list[i].Gender,
+                            Appearance = list[i].Appearance,
                             Seasons = list[i].Seasons ?? Array.Empty<string>()
                         };
                     }
@@ -389,7 +391,7 @@ namespace DVBARPG.Net.Network
             onDone?.Invoke(result);
         }
 
-        private IEnumerator CreateCharacterRoutine(AuthSession session, string name, string classId, string gender, Action<CreateCharacterResult> onDone)
+        private IEnumerator CreateCharacterRoutine(AuthSession session, string name, string classId, string gender, JObject appearance, Action<CreateCharacterResult> onDone)
         {
             var url = BuildUrl("/api/runtime/characters");
             if (string.IsNullOrWhiteSpace(url))
@@ -402,7 +404,8 @@ namespace DVBARPG.Net.Network
             {
                 Name = name ?? "",
                 ClassId = classId ?? "vanguard",
-                Gender = gender ?? "male"
+                Gender = gender ?? "male",
+                Appearance = appearance
             };
             var json = JsonConvert.SerializeObject(payload);
             using var req = new UnityWebRequest(url, "POST");
@@ -549,6 +552,7 @@ namespace DVBARPG.Net.Network
             [JsonProperty("id")] public string Id { get; set; }
             [JsonProperty("name")] public string Name { get; set; }
             [JsonProperty("gender")] public string Gender { get; set; }
+            [JsonProperty("appearance")] public JObject Appearance { get; set; }
             [JsonProperty("seasons")] public string[] Seasons { get; set; }
         }
 
@@ -633,6 +637,7 @@ namespace DVBARPG.Net.Network
             [JsonProperty("name")] public string Name { get; set; }
             [JsonProperty("classId")] public string ClassId { get; set; }
             [JsonProperty("gender")] public string Gender { get; set; }
+            [JsonProperty("appearance")] public JObject Appearance { get; set; }
         }
 
         private sealed class CreateCharacterResponse
