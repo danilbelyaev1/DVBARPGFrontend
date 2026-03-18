@@ -11,6 +11,8 @@ namespace Tools
         [SerializeField] private Terrain terrain;
         [Tooltip("Если Terrain не задан, используем bounds этого объекта (Renderer/Collider).")]
         [SerializeField] private GameObject sourceRoot;
+        [Tooltip("Персонаж для высоты препятствий: берётся высота от пола. Если задан — препятствия выравниваются по полу в каждой клетке.")]
+        [SerializeField] private GameObject characterReference;
         [Tooltip("Слои, которые считаются землёй (для Raycast).")]
         [SerializeField] private LayerMask groundMask = ~0;
 
@@ -54,13 +56,14 @@ namespace Tools
         {
             terrain = (Terrain)EditorGUILayout.ObjectField("Terrain", terrain, typeof(Terrain), true);
             sourceRoot = (GameObject)EditorGUILayout.ObjectField("Source Root", sourceRoot, typeof(GameObject), true);
+            characterReference = (GameObject)EditorGUILayout.ObjectField("Character (height reference)", characterReference, typeof(GameObject), true);
             groundMask = LayerMaskField("Ground Mask", groundMask);
 
             seaLevel = EditorGUILayout.FloatField("Sea Level", seaLevel);
             cellSize = Mathf.Max(0.25f, EditorGUILayout.FloatField("Cell Size", cellSize));
             rayDistance = Mathf.Max(1f, EditorGUILayout.FloatField("Ray Distance", rayDistance));
 
-            wallHeight = Mathf.Max(0.1f, EditorGUILayout.FloatField("Wall Height", wallHeight));
+            wallHeight = Mathf.Max(0.1f, EditorGUILayout.FloatField("Wall Height (если персонаж не задан)", wallHeight));
             wallThickness = Mathf.Max(0.05f, EditorGUILayout.FloatField("Wall Thickness", wallThickness));
             exportOnly = EditorGUILayout.Toggle("Export Only", exportOnly);
             useCombinedMesh = EditorGUILayout.Toggle("Combined Mesh", useCombinedMesh);
@@ -105,6 +108,13 @@ namespace Tools
             }
 
             if (layer >= 0) root.layer = layer;
+
+            float obstacleHeight = GetObstacleHeight();
+            if (obstacleHeight <= 0f)
+            {
+                Debug.LogWarning("Высота препятствий <= 0. Проверьте Character Reference или Wall Height.");
+                return;
+            }
 
             var sizeX = Mathf.CeilToInt(bounds.size.x / cellSize);
             var sizeZ = Mathf.CeilToInt(bounds.size.z / cellSize);
@@ -157,10 +167,11 @@ namespace Tools
                     var outward = GetOutwardNormal(land, ix, iz);
                     var offset = outward * ((cellSize + wallThickness) * 0.5f);
 
-                    var center = new Vector3(
-                        bounds.min.x + (ix + 0.5f) * cellSize,
-                        seaLevel + wallHeight * 0.5f,
-                        bounds.min.z + (iz + 0.5f) * cellSize) + new Vector3(offset.x, 0f, offset.y);
+                    var posX = bounds.min.x + (ix + 0.5f) * cellSize + offset.x;
+                    var posZ = bounds.min.z + (iz + 0.5f) * cellSize + offset.y;
+                    float floorY = GetFloorY(new Vector3(posX, bounds.max.y + 1f, posZ));
+                    float floorClamped = Mathf.Max(floorY, seaLevel);
+                    var center = new Vector3(posX, floorClamped + obstacleHeight * 0.5f, posZ);
 
                     edgeCells.Add(center);
                     edgeCellsForExport.Add(center);
@@ -178,7 +189,7 @@ namespace Tools
                 var mr = meshGo.AddComponent<MeshRenderer>();
                 mr.enabled = false;
 
-                mf.sharedMesh = BuildCombinedMesh(edgeCells, cellSize + wallThickness, wallHeight);
+                mf.sharedMesh = BuildCombinedMesh(edgeCells, cellSize + wallThickness, obstacleHeight);
 
                 if (addMeshCollider)
                 {
@@ -202,11 +213,48 @@ namespace Tools
                     go.transform.position = c;
                     if (layer >= 0) go.layer = layer;
                     var bc = go.AddComponent<BoxCollider>();
-                    bc.size = new Vector3(sizeXZ, wallHeight, sizeXZ);
+                    bc.size = new Vector3(sizeXZ, obstacleHeight, sizeXZ);
                 }
             }
 
             Debug.Log($"Сгенерировано препятствий (клетки границы): {created}");
+        }
+
+        /// <summary>
+        /// Высота препятствия: от пола под персонажем до верха коллайдера (учёт возвышения) или wallHeight.
+        /// </summary>
+        private float GetObstacleHeight()
+        {
+            if (characterReference == null)
+                return wallHeight;
+
+            var col = characterReference.GetComponentInChildren<Collider>();
+            if (col == null)
+                return wallHeight;
+
+            var charPos = characterReference.transform.position;
+            var rayOrigin = charPos + Vector3.up * (rayDistance * 0.5f);
+            float floorY = GetFloorY(rayOrigin);
+            float topY = col.bounds.max.y;
+            float fromFloor = topY - floorY;
+            return fromFloor > 0.01f ? fromFloor : wallHeight;
+        }
+
+        /// <summary>
+        /// Высота пола в мировой точке (x, z). Луч вниз от origin — origin.y должен быть выше предполагаемого пола.
+        /// </summary>
+        private float GetFloorY(Vector3 origin)
+        {
+            if (terrain != null)
+            {
+                var h = terrain.SampleHeight(origin) + terrain.GetPosition().y;
+                return h;
+            }
+
+            if (Physics.Raycast(origin, Vector3.down, out var hit, rayDistance, groundMask, QueryTriggerInteraction.Ignore))
+                return hit.point.y;
+
+            return origin.y - rayDistance * 0.5f;
         }
 
         private bool TryGetBounds(out Bounds bounds)
@@ -225,22 +273,29 @@ namespace Tools
                 return false;
             }
 
-            var renderer = sourceRoot.GetComponentInChildren<Renderer>();
-            if (renderer != null)
-            {
-                bounds = renderer.bounds;
-                return true;
-            }
+            return TryGetCombinedBoundsFromChildren(sourceRoot, out bounds);
+        }
 
-            var collider = sourceRoot.GetComponentInChildren<Collider>();
-            if (collider != null)
-            {
-                bounds = collider.bounds;
-                return true;
-            }
-
+        /// <summary>
+        /// Объединяет bounds всех Renderer и Collider у дочерних объектов — карта из разных объектов покрывается целиком.
+        /// </summary>
+        private static bool TryGetCombinedBoundsFromChildren(GameObject root, out Bounds bounds)
+        {
+            bool any = false;
             bounds = default;
-            return false;
+
+            foreach (var r in root.GetComponentsInChildren<Renderer>())
+            {
+                if (!any) { bounds = r.bounds; any = true; }
+                else bounds.Encapsulate(r.bounds);
+            }
+            foreach (var c in root.GetComponentsInChildren<Collider>())
+            {
+                if (!any) { bounds = c.bounds; any = true; }
+                else bounds.Encapsulate(c.bounds);
+            }
+
+            return any;
         }
 
         private bool IsLand(Vector3 world)

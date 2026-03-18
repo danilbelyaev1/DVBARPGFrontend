@@ -21,8 +21,17 @@ namespace DVBARPG.Game.Network
         [Tooltip("Сглаживание позиции (0 = выключено).")]
         [SerializeField] private float positionSmoothing = 12f;
 
+        [Header("Оптимизация высоты")]
+        [Tooltip("Как часто обновлять высоту по коллайдерам для монстров (сек). 0 = каждый кадр.")]
+        [SerializeField] private float heightSampleIntervalSec = 0.1f;
+        [Tooltip("Минимальное смещение по XZ для пересчёта высоты, даже если интервал ещё не прошёл.")]
+        [SerializeField] private float heightResampleDistance = 0.15f;
+
         private NetworkSessionRunner _net;
         private readonly Dictionary<Guid, Transform> _monsters = new();
+        private readonly Dictionary<Guid, MonsterAnimationDriver> _animCache = new();
+        private readonly Dictionary<Guid, float> _lastHeightSampleTime = new();
+        private readonly Dictionary<Guid, Vector3> _lastHeightSamplePos = new();
         private readonly HashSet<Guid> _seen = new();
         private readonly List<Guid> _toDisable = new();
 
@@ -74,7 +83,7 @@ namespace DVBARPG.Game.Network
                         }
 
                         var pos = hasFrom ? Vector3.Lerp(fromPos, toPos, t) : toPos;
-                        pos.y = SampleHeight(pos);
+                        pos.y = SampleHeightThrottled(m.Id, pos);
                         tr.position = ApplySmoothing(tr.position, pos);
                     }
                     else
@@ -82,12 +91,16 @@ namespace DVBARPG.Game.Network
                         var extraMs = Mathf.Min((float)(renderTime - to.ServerTimeMs), maxExtrapolationMs);
                         var vel = EstimateMonsterVelocity(m.Id);
                         var pos = vel.sqrMagnitude > 0.0001f ? toPos + vel * (extraMs / 1000f) : toPos;
-                        pos.y = SampleHeight(pos);
+                        pos.y = SampleHeightThrottled(m.Id, pos);
                         tr.position = ApplySmoothing(tr.position, pos);
                     }
                     if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
 
-                    var monsterAnim = tr.GetComponent<MonsterAnimationDriver>();
+                    if (!_animCache.TryGetValue(m.Id, out var monsterAnim) || monsterAnim == null)
+                    {
+                        monsterAnim = tr.GetComponent<MonsterAnimationDriver>();
+                        _animCache[m.Id] = monsterAnim;
+                    }
                     if (monsterAnim != null)
                     {
                         monsterAnim.ApplyNetworkState(m.State, m.Type, to.ServerTimeMs);
@@ -108,6 +121,9 @@ namespace DVBARPG.Game.Network
                 {
                     Registry.Remove(id);
                     _monsters.Remove(id);
+                    _animCache.Remove(id);
+                    _lastHeightSampleTime.Remove(id);
+                    _lastHeightSamplePos.Remove(id);
                 }
             }
         }
@@ -139,9 +155,29 @@ namespace DVBARPG.Game.Network
             return (lastPos - prevPos) / (dtMs / 1000f);
         }
 
-        private float SampleHeight(Vector3 worldPos)
+        private float SampleHeightThrottled(Guid id, Vector3 worldPos)
         {
-            return UnifiedHeightSampler.SampleHeight(worldPos);
+            if (heightSampleIntervalSec <= 0f)
+                return UnifiedHeightSampler.SampleHeight(worldPos);
+
+            var now = Time.unscaledTime;
+            if (_lastHeightSampleTime.TryGetValue(id, out var lastT) &&
+                _lastHeightSamplePos.TryGetValue(id, out var lastPos))
+            {
+                var dt = now - lastT;
+                var dx = worldPos.x - lastPos.x;
+                var dz = worldPos.z - lastPos.z;
+                var movedSq = dx * dx + dz * dz;
+                if (dt < heightSampleIntervalSec && movedSq < heightResampleDistance * heightResampleDistance)
+                {
+                    return lastPos.y;
+                }
+            }
+
+            var y = UnifiedHeightSampler.SampleHeight(worldPos);
+            _lastHeightSampleTime[id] = now;
+            _lastHeightSamplePos[id] = new Vector3(worldPos.x, y, worldPos.z);
+            return y;
         }
 
         private Vector3 ApplySmoothing(Vector3 current, Vector3 target)

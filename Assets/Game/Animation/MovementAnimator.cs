@@ -39,6 +39,13 @@ namespace DVBARPG.Game.Animation
         private bool _isMoving;
         private bool _rotationLocked;
 
+        // Кэш наличия параметров Animator, чтобы не сканировать их каждый кадр.
+        private bool _paramsScanned;
+        private bool _hasIsMovingBool;
+        private bool _hasSpeedFloat;
+        private bool _hasMoveXFloat;
+        private bool _hasMoveYFloat;
+
         private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
         private static readonly int SpeedHash = Animator.StringToHash("Speed");
         private static readonly int MoveXHash = Animator.StringToHash("MoveX");
@@ -83,6 +90,34 @@ namespace DVBARPG.Game.Animation
             if (animator != null)
                 animator.applyRootMotion = false; // поворот и сдвиг корня только из кода (PlayerTargetFacing, движение)
             _lastPos = transform.position;
+
+            // Один раз подтягиваем базовую скорость из профиля, если она не задана.
+            if (baseMoveSpeed <= 0.001f)
+            {
+                var root = DVBARPG.Core.GameRoot.Instance;
+                var services = root != null ? root.Services : null;
+                var profile = services != null ? services.Get<DVBARPG.Core.Services.IProfileService>() : null;
+                if (profile != null && profile.BaseMoveSpeed > 0.001f)
+                {
+                    baseMoveSpeed = profile.BaseMoveSpeed;
+                }
+            }
+
+            CacheAnimatorParams();
+        }
+
+        private void CacheAnimatorParams()
+        {
+            if (animator == null || _paramsScanned) return;
+            _paramsScanned = true;
+            for (int i = 0; i < animator.parameterCount; i++)
+            {
+                var p = animator.GetParameter(i);
+                if (p.nameHash == IsMovingHash && p.type == AnimatorControllerParameterType.Bool) _hasIsMovingBool = true;
+                if (p.nameHash == SpeedHash && p.type == AnimatorControllerParameterType.Float) _hasSpeedFloat = true;
+                if (p.nameHash == MoveXHash && p.type == AnimatorControllerParameterType.Float) _hasMoveXFloat = true;
+                if (p.nameHash == MoveYHash && p.type == AnimatorControllerParameterType.Float) _hasMoveYFloat = true;
+            }
         }
 
         private void Update()
@@ -94,53 +129,45 @@ namespace DVBARPG.Game.Animation
                 _lastPos = pos;
 
                 var dt = Mathf.Max(Time.deltaTime, 0.0001f);
-                if (baseMoveSpeed <= 0.001f)
-                {
-                    var profile = DVBARPG.Core.GameRoot.Instance?.Services?.Get<DVBARPG.Core.Services.IProfileService>();
-                    if (profile != null && profile.BaseMoveSpeed > 0.001f)
-                    {
-                        baseMoveSpeed = profile.BaseMoveSpeed;
-                    }
-                }
                 var localVel = transform.InverseTransformDirection(new Vector3(delta.x, 0f, delta.z)) / dt;
                 var targetDir = new Vector2(localVel.x, localVel.z);
                 var dirAlpha = 1f - Mathf.Exp(-dt / Mathf.Max(directionSmoothingTime, 0.001f));
                 _smoothedDir = Vector2.Lerp(_smoothedDir, targetDir, dirAlpha);
 
-            if (instantStop && delta.sqrMagnitude < 0.0000001f)
-            {
-                _smoothedSpeed = 0f;
-                _isMoving = false;
-                if (HasBoolParam(IsMovingHash)) animator.SetBool(IsMovingHash, _isMoving);
-            }
-            else
-            {
-            var speedNow = delta.magnitude / dt;
-            var alpha = 1f - Mathf.Exp(-dt / Mathf.Max(speedSmoothingTime, 0.001f));
-            _smoothedSpeed = Mathf.Lerp(_smoothedSpeed, speedNow, alpha);
-
-            if (_isMoving)
-            {
-                if (_smoothedSpeed <= movingOffThreshold)
+                if (instantStop && delta.sqrMagnitude < 0.0000001f)
                 {
+                    _smoothedSpeed = 0f;
                     _isMoving = false;
+                    if (_hasIsMovingBool) animator.SetBool(IsMovingHash, _isMoving);
                 }
-            }
-            else
-            {
-                if (_smoothedSpeed >= movingOnThreshold)
+                else
                 {
-                    _isMoving = true;
-                }
-            }
+                    var speedNow = delta.magnitude / dt;
+                    var alpha = 1f - Mathf.Exp(-dt / Mathf.Max(speedSmoothingTime, 0.001f));
+                    _smoothedSpeed = Mathf.Lerp(_smoothedSpeed, speedNow, alpha);
 
-            if (HasBoolParam(IsMovingHash)) animator.SetBool(IsMovingHash, _isMoving);
-            }
+                    if (_isMoving)
+                    {
+                        if (_smoothedSpeed <= movingOffThreshold)
+                        {
+                            _isMoving = false;
+                        }
+                    }
+                    else
+                    {
+                        if (_smoothedSpeed >= movingOnThreshold)
+                        {
+                            _isMoving = true;
+                        }
+                    }
+
+                    if (_hasIsMovingBool) animator.SetBool(IsMovingHash, _isMoving);
+                }
 
                 // Параметры направления для Blend Tree (только если есть в Controller).
-                if (HasFloatParam(SpeedHash)) animator.SetFloat(SpeedHash, Mathf.Clamp(baseMoveSpeed > 0.001f ? speedAtBase * (_smoothedSpeed / baseMoveSpeed) : speedAtBase, speedAtBase, maxSpeedParam));
-                if (HasFloatParam(MoveXHash)) animator.SetFloat(MoveXHash, _smoothedDir.x);
-                if (HasFloatParam(MoveYHash)) animator.SetFloat(MoveYHash, _smoothedDir.y);
+                if (_hasSpeedFloat) animator.SetFloat(SpeedHash, Mathf.Clamp(baseMoveSpeed > 0.001f ? speedAtBase * (_smoothedSpeed / baseMoveSpeed) : speedAtBase, speedAtBase, maxSpeedParam));
+                if (_hasMoveXFloat) animator.SetFloat(MoveXHash, _smoothedDir.x);
+                if (_hasMoveYFloat) animator.SetFloat(MoveYHash, _smoothedDir.y);
 
                 if (rotateToMovement && !_rotationLocked && delta.sqrMagnitude > 0.0001f)
                 {

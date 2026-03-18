@@ -23,6 +23,10 @@ namespace DVBARPG.Game.Player
         [SerializeField] private bool enablePrediction = true;
         [Tooltip("Скорость движения для предсказания (должна совпадать с серверной).")]
         [SerializeField] private float predictedMoveSpeed = 4.5f;
+        [Tooltip("Максимальное число неподтверждённых инпутов для предсказания (ограничение дрейфа).")]
+        [SerializeField] private int maxPendingInputs = 30;
+        [Tooltip("Сглаживание позиции при применении предсказанной/серверной позы (0 = сразу, больше = мягче).")]
+        [SerializeField] private float positionSmoothing = 12f;
         [Header("Поворот")]
         [Tooltip("Скорость сглаживания поворота.")]
         [SerializeField] private float rotationLerp = 12f;
@@ -89,13 +93,7 @@ namespace DVBARPG.Game.Player
                 }
 
                 _predictedPos.y = SampleHeight(_predictedPos);
-                transform.position = _predictedPos;
-            }
-
-            if (Time.unscaledTime - _lastLog > 1f)
-            {
-                Debug.Log($"NetworkPlayerReplicator: snapshot hp {snap.Player.Hp}/{snap.Player.MaxHp}");
-                _lastLog = Time.unscaledTime;
+                transform.position = ApplySmoothing(transform.position, _predictedPos);
             }
         }
 
@@ -105,6 +103,11 @@ namespace DVBARPG.Game.Player
 
             var p = new PendingInput { Seq = seq, Dir = dir, Dt = dt };
             _pending.Add(p);
+            if (maxPendingInputs > 0 && _pending.Count > maxPendingInputs)
+            {
+                var overflow = _pending.Count - maxPendingInputs;
+                _pending.RemoveRange(0, overflow);
+            }
 
             if (!_hasServerPos)
             {
@@ -119,7 +122,7 @@ namespace DVBARPG.Game.Player
                 _predictedPos += new Vector3(norm.x, 0f, norm.y) * predictedMoveSpeed * dt;
                 _targetForward = new Vector3(norm.x, 0f, norm.y);
                 _predictedPos.y = SampleHeight(_predictedPos);
-                transform.position = _predictedPos;
+                transform.position = ApplySmoothing(transform.position, _predictedPos);
             }
         }
 
@@ -180,6 +183,13 @@ namespace DVBARPG.Game.Player
         private float SampleHeight(Vector3 worldPos)
         {
             return UnifiedHeightSampler.SampleHeight(worldPos);
+        }
+
+        private Vector3 ApplySmoothing(Vector3 current, Vector3 target)
+        {
+            if (positionSmoothing <= 0f) return target;
+            var alpha = 1f - Mathf.Exp(-positionSmoothing * Time.deltaTime);
+            return Vector3.Lerp(current, target, alpha);
         }
     }
 }

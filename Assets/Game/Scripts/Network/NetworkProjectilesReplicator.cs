@@ -35,6 +35,7 @@ namespace DVBARPG.Game.Network
         private readonly Dictionary<Guid, float> _projectileBaseDiameters = new();
         private readonly HashSet<Guid> _seen = new();
         private readonly List<Guid> _toDisable = new();
+        private readonly Stack<Transform> _pool = new();
 
         private void OnEnable()
         {
@@ -61,7 +62,8 @@ namespace DVBARPG.Game.Network
                 _seen.Add(p.Id);
                 if (!_projectiles.TryGetValue(p.Id, out var tr) || tr == null)
                 {
-                    tr = Instantiate(projectilePrefab, transform);
+                    tr = _pool.Count > 0 ? _pool.Pop() : Instantiate(projectilePrefab, transform);
+                    if (tr.parent != transform) tr.SetParent(transform, worldPositionStays: false);
                     tr.name = $"Projectile-{p.Id.ToString().Substring(0, 8)}";
                     _projectiles[p.Id] = tr;
                     _projectileBaseDiameters[p.Id] = ComputePrefabBaseDiameter(tr);
@@ -116,7 +118,8 @@ namespace DVBARPG.Game.Network
                 {
                     if (_projectiles.TryGetValue(id, out var tr) && tr != null)
                     {
-                        Destroy(tr.gameObject);
+                        tr.gameObject.SetActive(false);
+                        _pool.Push(tr);
                     }
                     _projectiles.Remove(id);
                     _projectileBaseDiameters.Remove(id);

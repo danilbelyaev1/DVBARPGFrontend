@@ -5,6 +5,7 @@ namespace Tools
     using System.Linq;
     using UnityEditor;
     using UnityEngine;
+    using UnityEngine.AI;
     using UnityEngine.Networking;
 
     /// <summary>
@@ -37,18 +38,13 @@ namespace Tools
         private bool _tagsLoaded;
 
         // --- Спавны врагов (предзаполнено для 1 уровня) ---
-        private List<Vector2> _enemySpawns = new List<Vector2> { new Vector2(-1.59f, 1.59f) };
+        private List<EnemySpawnEntry> _enemySpawns = new List<EnemySpawnEntry> { new EnemySpawnEntry { x = -1.59f, y = 1.59f, max_per_point = 5 } };
         private float _newSpawnX = 0f;
         private float _newSpawnY = 0f;
+        private int _newSpawnMaxPerPoint = 5;
         private bool _enemySpawnsFromScene = false;
 
         // --- Сцена: слои для сбора ---
-        private bool _useObstacleLayer = true;
-        private string _obstacleLayerName = "Obstacle";
-        private bool _skipTriggerColliders = true;
-        private bool _excludeLongBoundaryObstacles = true;
-        private float _boundaryLengthThreshold = 80f;
-        private float _boundaryThicknessThreshold = 2f;
         private bool _usePlayerSpawnLayer = true;
         private string _playerSpawnLayerName = "PlayerSpawn";
         private bool _useEnemySpawnLayer = true;
@@ -58,6 +54,9 @@ namespace Tools
         private string _storeMapEndpoint = "/api/content/maps";
         private string _serverStatus = "";
         private bool _sending;
+
+        // --- NavMesh (для коллизий и pathfinding на сервере) ---
+        private NavMeshExport _navmeshExport;
 
         [MenuItem("Tools/Runtime Server/Редактор карт")]
         public static void Open()
@@ -88,6 +87,10 @@ namespace Tools
             EditorGUILayout.Space(6f);
             DrawSectionHeader("Сбор со сцены");
             DrawSceneCollection();
+
+            EditorGUILayout.Space(6f);
+            DrawSectionHeader("Предпросмотр карты");
+            DrawMapPreview();
 
             EditorGUILayout.Space(6f);
             DrawSectionHeader("Сервер");
@@ -192,19 +195,25 @@ namespace Tools
             EditorGUILayout.LabelField("Добавить точку Y", GUILayout.Width(LabelWidth));
             _newSpawnY = EditorGUILayout.FloatField(_newSpawnY);
             EditorGUILayout.EndHorizontal();
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Макс. врагов в точке", GUILayout.Width(LabelWidth));
+            _newSpawnMaxPerPoint = Mathf.Max(0, EditorGUILayout.IntField(_newSpawnMaxPerPoint));
+            EditorGUILayout.EndHorizontal();
             if (GUILayout.Button("Добавить точку спавна врагов"))
             {
-                _enemySpawns.Add(new Vector2(_newSpawnX, _newSpawnY));
+                _enemySpawns.Add(new EnemySpawnEntry { x = _newSpawnX, y = _newSpawnY, max_per_point = _newSpawnMaxPerPoint > 0 ? _newSpawnMaxPerPoint : 5 });
             }
 
             for (int i = _enemySpawns.Count - 1; i >= 0; i--)
             {
+                var e = _enemySpawns[i];
                 EditorGUILayout.BeginHorizontal();
-                var v = _enemySpawns[i];
-                _enemySpawns[i] = new Vector2(
-                    EditorGUILayout.FloatField(v.x),
-                    EditorGUILayout.FloatField(v.y)
-                );
+                _enemySpawns[i] = new EnemySpawnEntry
+                {
+                    x = EditorGUILayout.FloatField(e.x),
+                    y = EditorGUILayout.FloatField(e.y),
+                    max_per_point = Mathf.Max(0, EditorGUILayout.IntField(e.max_per_point > 0 ? e.max_per_point : 5, GUILayout.Width(40)))
+                };
                 if (GUILayout.Button("−", GUILayout.Width(24)))
                 {
                     _enemySpawns.RemoveAt(i);
@@ -215,18 +224,6 @@ namespace Tools
 
         private void DrawSceneCollection()
         {
-            _useObstacleLayer = EditorGUILayout.Toggle("Слой препятствий", _useObstacleLayer);
-            if (_useObstacleLayer)
-            {
-                _obstacleLayerName = EditorGUILayout.TextField("  Имя слоя", _obstacleLayerName);
-            }
-            _skipTriggerColliders = EditorGUILayout.Toggle("Игнорировать триггеры", _skipTriggerColliders);
-            _excludeLongBoundaryObstacles = EditorGUILayout.Toggle("Исключать длинные границы", _excludeLongBoundaryObstacles);
-            if (_excludeLongBoundaryObstacles)
-            {
-                _boundaryLengthThreshold = Mathf.Max(1f, EditorGUILayout.FloatField("  Длина границы >=", _boundaryLengthThreshold));
-                _boundaryThicknessThreshold = Mathf.Max(0.01f, EditorGUILayout.FloatField("  Толщина <=", _boundaryThicknessThreshold));
-            }
             _usePlayerSpawnLayer = EditorGUILayout.Toggle("Слой спавна игрока", _usePlayerSpawnLayer);
             if (_usePlayerSpawnLayer)
             {
@@ -238,10 +235,161 @@ namespace Tools
                 _enemySpawnLayerName = EditorGUILayout.TextField("  Имя слоя", _enemySpawnLayerName);
             }
 
-            if (GUILayout.Button("Собрать препятствия и спавны со сцены"))
+            if (GUILayout.Button("Собрать спавны со сцены"))
             {
                 ApplySceneData();
             }
+
+            EditorGUILayout.Space(6f);
+            DrawSectionHeader("NavMesh (сервер)");
+            DrawNavMeshSection();
+        }
+
+        private void DrawNavMeshSection()
+        {
+            EditorGUILayout.HelpBox(
+                "Запекание: добавьте Navigation > NavMesh Surface, в Use Geometry выберите Physics Colliders (только объекты с коллайдерами; Render Meshes учитывает и объекты без коллайдеров). Нажмите Bake. " +
+                "Затем «Экспорт NavMesh» — данные уйдут на сервер при сохранении карты.",
+                MessageType.None);
+            if (GUILayout.Button("Экспорт NavMesh сцены"))
+            {
+                ExportSceneNavMesh();
+            }
+            if (_navmeshExport != null && _navmeshExport.vertices != null)
+            {
+                EditorGUILayout.LabelField($"NavMesh: {_navmeshExport.vertices.Length} вершин, {_navmeshExport.triangles?.Length / 3 ?? 0} треугольников.");
+            }
+            else
+            {
+                EditorGUILayout.LabelField("NavMesh не экспортирован.");
+            }
+        }
+
+        private void ExportSceneNavMesh()
+        {
+#if UNITY_EDITOR
+            var tri = NavMesh.CalculateTriangulation();
+            if (tri.vertices == null || tri.vertices.Length == 0)
+            {
+                Debug.LogWarning("NavMesh пуст. Добавьте NavMesh Surface на объект и нажмите Bake в Inspector (или Window > AI > Navigation > Bake в старых версиях).");
+                return;
+            }
+            var vertices = new List<NavMeshVertexExport>();
+            for (int i = 0; i < tri.vertices.Length; i++)
+            {
+                var v = tri.vertices[i];
+                vertices.Add(new NavMeshVertexExport { x = v.x, y = v.z });
+            }
+            var triangles = tri.indices != null ? new List<int>(tri.indices) : new List<int>();
+            var neighbours = BuildNavMeshNeighbours(vertices.Count, triangles);
+            _navmeshExport = new NavMeshExport
+            {
+                vertices = vertices.ToArray(),
+                triangles = triangles.ToArray(),
+                neighbours = neighbours.ToArray()
+            };
+            Debug.Log($"NavMesh экспортирован: {vertices.Count} вершин, {triangles.Count / 3} треугольников.");
+#endif
+        }
+
+        private static List<int> BuildNavMeshNeighbours(int numVertices, List<int> triangles)
+        {
+            var triCount = triangles.Count / 3;
+            var neighbours = new List<int>(triCount * 3);
+            for (int t = 0; t < triCount; t++)
+            {
+                int i0 = triangles[t * 3], i1 = triangles[t * 3 + 1], i2 = triangles[t * 3 + 2];
+                neighbours.Add(FindNeighbour(triangles, t, i1, i2));
+                neighbours.Add(FindNeighbour(triangles, t, i2, i0));
+                neighbours.Add(FindNeighbour(triangles, t, i0, i1));
+            }
+            return neighbours;
+        }
+
+        private static int FindNeighbour(List<int> triangles, int skipTri, int va, int vb)
+        {
+            int triCount = triangles.Count / 3;
+            for (int t = 0; t < triCount; t++)
+            {
+                if (t == skipTri) continue;
+                int a = triangles[t * 3], b = triangles[t * 3 + 1], c = triangles[t * 3 + 2];
+                bool hasA = a == va || b == va || c == va;
+                bool hasB = a == vb || b == vb || c == vb;
+                if (hasA && hasB) return t;
+            }
+            return -1;
+        }
+
+        private const float PreviewWidth = 320f;
+        private const float PreviewHeight = 200f;
+        private const float PreviewPadding = 4f;
+
+        private void DrawMapPreview()
+        {
+            if (_enemySpawns.Count == 0)
+            {
+                EditorGUILayout.HelpBox("Добавьте точки спавна или нажмите «Собрать спавны со сцены», чтобы увидеть предпросмотр.", MessageType.Info);
+                return;
+            }
+
+            var rect = GUILayoutUtility.GetRect(PreviewWidth, PreviewHeight);
+            var inner = new Rect(rect.x + PreviewPadding, rect.y + PreviewPadding, rect.width - PreviewPadding * 2f, rect.height - PreviewPadding * 2f);
+
+            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+            void Expand(float x, float y)
+            {
+                minX = Mathf.Min(minX, x);
+                minY = Mathf.Min(minY, y);
+                maxX = Mathf.Max(maxX, x);
+                maxY = Mathf.Max(maxY, y);
+            }
+
+            Expand(_playerSpawnX, _playerSpawnY);
+            foreach (var s in _enemySpawns)
+                Expand(s.x, s.y);
+
+            if (minX == float.MaxValue)
+            {
+                minX = maxX = _playerSpawnX;
+                minY = maxY = _playerSpawnY;
+            }
+            float spanX = maxX - minX;
+            float spanY = maxY - minY;
+            if (spanX < 1f) spanX = 1f;
+            if (spanY < 1f) spanY = 1f;
+            float margin = Mathf.Max(spanX, spanY) * 0.15f;
+            minX -= margin;
+            minY -= margin;
+            spanX += margin * 2f;
+            spanY += margin * 2f;
+            float scale = Mathf.Min(inner.width / spanX, inner.height / spanY);
+            float centerX = minX + spanX * 0.5f;
+            float centerY = minY + spanY * 0.5f;
+
+            Vector2 WorldToPreview(float wx, float wy)
+            {
+                float px = inner.x + inner.width * 0.5f + (wx - centerX) * scale;
+                float py = inner.y + inner.height * 0.5f - (wy - centerY) * scale;
+                return new Vector2(px, py);
+            }
+
+            EditorGUI.DrawRect(rect, new Color(0.22f, 0.22f, 0.22f));
+            EditorGUI.DrawRect(inner, new Color(0.16f, 0.2f, 0.18f));
+
+            Handles.BeginGUI();
+            float r = 5f;
+            Handles.color = new Color(0.3f, 0.6f, 1f);
+            var pCenter = WorldToPreview(_playerSpawnX, _playerSpawnY);
+            Handles.DrawSolidDisc(new Vector3(pCenter.x, pCenter.y, 0f), Vector3.forward, r);
+            Handles.color = new Color(1f, 0.45f, 0.35f);
+            foreach (var s in _enemySpawns)
+            {
+                var ep = WorldToPreview(s.x, s.y);
+                Handles.DrawSolidDisc(new Vector3(ep.x, ep.y, 0f), Vector3.forward, r * 0.8f);
+            }
+            Handles.EndGUI();
+
+            GUILayout.Label("Синий — игрок, красные — спавны врагов.");
         }
 
         private void DrawServerSection()
@@ -264,7 +412,6 @@ namespace Tools
 
         private void ApplySceneData()
         {
-            var obstacles = CollectObstacles();
             if (_playerSpawnFromScene)
             {
                 var ps = CollectPlayerSpawn();
@@ -279,16 +426,15 @@ namespace Tools
                 var spawns = CollectEnemySpawns();
                 if (spawns.Count > 0)
                 {
-                    _enemySpawns = spawns;
+                    _enemySpawns = spawns.ConvertAll(v => new EnemySpawnEntry { x = v.x, y = v.y, max_per_point = 5 });
                 }
             }
-            Debug.Log($"Собрано: препятствий {obstacles.Count}. Спавн игрока: {_playerSpawnX:F2}, {_playerSpawnY:F2}. Точек врагов: {_enemySpawns.Count}");
+            Debug.Log($"Спавн игрока: {_playerSpawnX:F2}, {_playerSpawnY:F2}. Точек врагов: {_enemySpawns.Count}");
         }
 
         private void SaveMapToServer()
         {
             var mapId = string.IsNullOrWhiteSpace(_mapId) ? GetDefaultMapId() : _mapId;
-            var obstacles = CollectObstacles();
             MapPoint playerSpawn = null;
             if (_playerSpawnFromScene)
             {
@@ -315,10 +461,10 @@ namespace Tools
                 return;
             }
 
-            var enemySpawns = _enemySpawnsFromScene ? CollectEnemySpawns() : _enemySpawns;
-            if (_enemySpawnsFromScene && enemySpawns.Count == 0)
+            var enemySpawnsForPayload = _enemySpawnsFromScene ? CollectEnemySpawns().ConvertAll(v => new EnemySpawnEntry { x = v.x, y = v.y, max_per_point = 5 }) : _enemySpawns;
+            if (_enemySpawnsFromScene && enemySpawnsForPayload.Count == 0)
             {
-                enemySpawns = _enemySpawns;
+                enemySpawnsForPayload = _enemySpawns;
             }
 
             var payload = new MapPayload
@@ -327,11 +473,17 @@ namespace Tools
                 playerRadius = _playerRadius,
                 playerSpawn = playerSpawn,
                 enemyTags = enemyTags,
-                enemySpawns = enemySpawns.Select(v => new MapPoint { x = v.x, y = v.y }).ToList(),
-                obstacles = obstacles
+                enemySpawns = enemySpawnsForPayload,
+                navmesh = _navmeshExport
             };
 
             var json = JsonUtility.ToJson(payload);
+            if (_navmeshExport != null && _navmeshExport.vertices != null && _navmeshExport.vertices.Length > 0)
+            {
+                var navmeshStr = JsonUtility.ToJson(_navmeshExport);
+                if (json.IndexOf("\"navmesh\":null", StringComparison.Ordinal) is int nmPos && nmPos >= 0)
+                    json = json.Substring(0, nmPos + "\"navmesh\":".Length) + navmeshStr + json.Substring(nmPos + "\"navmesh\":null".Length);
+            }
             var url = BuildUrl(_backendApiBaseUrl, _storeMapEndpoint);
             if (string.IsNullOrWhiteSpace(url))
             {
@@ -378,51 +530,6 @@ namespace Tools
             return string.IsNullOrWhiteSpace(scene.name) ? "default" : scene.name;
         }
 
-        private List<MapObstacle> CollectObstacles()
-        {
-            var result = new List<MapObstacle>();
-            var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-            var allTransforms = roots.SelectMany(r => r.GetComponentsInChildren<Transform>(true)).ToArray();
-
-            foreach (var t in allTransforms)
-            {
-                if (!IsLayerMatch(t.gameObject, _obstacleLayerName, _useObstacleLayer))
-                    continue;
-
-                var box2d = t.GetComponent<BoxCollider2D>();
-                if (box2d != null)
-                {
-                    if (_skipTriggerColliders && box2d.isTrigger) continue;
-                    var center = box2d.transform.TransformPoint(box2d.offset);
-                    var size = Vector2.Scale(box2d.size, box2d.transform.lossyScale);
-                    if (ShouldSkipAsBoundaryObstacle(Mathf.Abs(size.x), Mathf.Abs(size.y))) continue;
-                    result.Add(new MapObstacle
-                    {
-                        x = center.x, y = center.y,
-                        w = Mathf.Abs(size.x), h = Mathf.Abs(size.y),
-                        rot = box2d.transform.eulerAngles.z
-                    });
-                    continue;
-                }
-
-                var box3d = t.GetComponent<BoxCollider>();
-                if (box3d != null)
-                {
-                    if (_skipTriggerColliders && box3d.isTrigger) continue;
-                    var center = box3d.transform.TransformPoint(box3d.center);
-                    var size = Vector3.Scale(box3d.size, box3d.transform.lossyScale);
-                    if (ShouldSkipAsBoundaryObstacle(Mathf.Abs(size.x), Mathf.Abs(size.z))) continue;
-                    result.Add(new MapObstacle
-                    {
-                        x = center.x, y = center.z,
-                        w = Mathf.Abs(size.x), h = Mathf.Abs(size.z),
-                        rot = box3d.transform.eulerAngles.y
-                    });
-                }
-            }
-            return result;
-        }
-
         private MapPoint CollectPlayerSpawn()
         {
             var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
@@ -461,14 +568,6 @@ namespace Tools
             var layer = LayerMask.NameToLayer(layerName);
             if (layer < 0) return true;
             return go.layer == layer;
-        }
-
-        private bool ShouldSkipAsBoundaryObstacle(float width, float height)
-        {
-            if (!_excludeLongBoundaryObstacles) return false;
-            var longH = width >= _boundaryLengthThreshold && height <= _boundaryThicknessThreshold;
-            var longV = height >= _boundaryLengthThreshold && width <= _boundaryThicknessThreshold;
-            return longH || longV;
         }
 
         private bool LoadEnemyTagsFromBackend()
@@ -534,8 +633,31 @@ namespace Tools
             public float playerRadius;
             public MapPoint playerSpawn;
             public List<string> enemyTags;
-            public List<MapPoint> enemySpawns;
-            public List<MapObstacle> obstacles;
+            public List<EnemySpawnEntry> enemySpawns;
+            public NavMeshExport navmesh;
+        }
+
+        [Serializable]
+        private sealed class NavMeshExport
+        {
+            public NavMeshVertexExport[] vertices;
+            public int[] triangles;
+            public int[] neighbours;
+        }
+
+        [Serializable]
+        private sealed class NavMeshVertexExport
+        {
+            public float x;
+            public float y;
+        }
+
+        [Serializable]
+        private sealed class EnemySpawnEntry
+        {
+            public float x;
+            public float y;
+            public int max_per_point = 5;
         }
 
         [Serializable]
@@ -550,16 +672,6 @@ namespace Tools
         {
             public float x;
             public float y;
-        }
-
-        [Serializable]
-        private sealed class MapObstacle
-        {
-            public float x;
-            public float y;
-            public float w;
-            public float h;
-            public float rot;
         }
     }
 }

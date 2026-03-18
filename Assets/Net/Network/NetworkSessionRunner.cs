@@ -26,7 +26,7 @@ namespace DVBARPG.Net.Network
 
         [Header("Отладка UDP")]
         [Tooltip("Включить логирование отправки/приёма UDP пакетов.")]
-        [SerializeField] private bool logUdpTraffic = true;
+        [SerializeField] private bool logUdpTraffic = false;
 
         private UdpClient _udp;
         private IPEndPoint _remoteEndPoint;
@@ -208,27 +208,45 @@ namespace DVBARPG.Net.Network
         {
             using (RuntimeProfiler.Sample("NetworkSessionRunner.Update"))
             {
+                // Do not process unlimited snapshots per frame: if the client hiccups,
+                // draining a backlog in one frame causes massive stutter and FPS collapse.
+                // Keep only the most recent snapshot for immediate listeners, but still
+                // push snapshots into the interpolation buffer.
+                SnapshotEnvelope lastSnap = null;
+                var processed = 0;
+                const int maxSnapshotsPerFrame = 4;
                 while (_snapshots.TryDequeue(out var snap))
-            {
-                Snapshot?.Invoke(snap);
-
-                if (!_runEndedFired && snap?.Player != null && snap.Player.MaxHp > 0 && snap.Player.Hp <= 0)
                 {
-                    _runEndedFired = true;
-                    RunEnded?.Invoke(true);
-                }
+                    lastSnap = snap;
+                    processed++;
 
-                lock (_bufferLock)
-                {
-                    _buffer.Add(snap);
-                    if (_buffer.Count > 30) _buffer.RemoveAt(0);
-                    if (!_hasTimeOffset)
+                    lock (_bufferLock)
                     {
-                        _serverToLocalOffsetMs = Time.unscaledTime * 1000f - snap.ServerTimeMs;
-                        _hasTimeOffset = true;
+                        _buffer.Add(snap);
+                        if (_buffer.Count > 30) _buffer.RemoveAt(0);
+                        if (!_hasTimeOffset)
+                        {
+                            _serverToLocalOffsetMs = Time.unscaledTime * 1000f - snap.ServerTimeMs;
+                            _hasTimeOffset = true;
+                        }
+                    }
+
+                    if (processed >= maxSnapshotsPerFrame)
+                    {
+                        // Drop the rest of the backlog this frame; we'll catch up smoothly.
+                        while (_snapshots.TryDequeue(out _)) { }
+                        break;
                     }
                 }
 
+                if (lastSnap != null)
+                {
+                    Snapshot?.Invoke(lastSnap);
+                    if (!_runEndedFired && lastSnap.Player != null && lastSnap.Player.MaxHp > 0 && lastSnap.Player.Hp <= 0)
+                    {
+                        _runEndedFired = true;
+                        RunEnded?.Invoke(true);
+                    }
                 }
             }
 
@@ -310,7 +328,8 @@ namespace DVBARPG.Net.Network
                 var json = Encoding.UTF8.GetString(result.Buffer);
                 if (logUdpTraffic)
                 {
-                    if (!IsIdleSnapshot(json) && !IsNetStats(json) && !IsEmptyMonstersSnapshot(json))
+                    // Никогда не логируем снапшоты: они большие и быстро убивают FPS в Editor/Development.
+                    if (!json.Contains("\"type\":\"snapshot\"") && !IsNetStats(json))
                     {
                         DebugLog($"UDP RECV: {json}");
                     }
@@ -319,30 +338,37 @@ namespace DVBARPG.Net.Network
             }
         }
 
-        private static bool IsIdleSnapshot(string json)
-        {
-            if (string.IsNullOrWhiteSpace(json)) return false;
-            if (!json.Contains("\"type\":\"snapshot\"")) return false;
-            return json.Contains("\"state\":\"idle\"");
-        }
-
         private static bool IsNetStats(string json)
         {
             if (string.IsNullOrWhiteSpace(json)) return false;
             return json.Contains("\"type\":\"net_stats\"");
         }
 
-        private static bool IsEmptyMonstersSnapshot(string json)
-        {
-            if (string.IsNullOrWhiteSpace(json)) return false;
-            if (!json.Contains("\"type\":\"snapshot\"")) return false;
-            return json.Contains("\"monsters\":[]");
-        }
-
         private void TryHandleMessage(string json)
         {
             try
             {
+                // Hot path: snapshots. Десериализуем только один раз (без base envelope), чтобы уменьшить GC и CPU.
+                if (!string.IsNullOrWhiteSpace(json) && json.Contains("\"type\":\"snapshot\""))
+                {
+                    var snap = JsonConvert.DeserializeObject<SnapshotEnvelope>(json, NetProtocol.JsonSettings);
+                    if (snap == null) return;
+
+                    if (snap.Ack > _lastAckFromServer)
+                    {
+                        _lastAckFromServer = snap.Ack;
+                        CleanupPending();
+                    }
+
+                    if (snap.Reliable && !AcceptReliable(snap.PacketSeq))
+                    {
+                        return;
+                    }
+
+                    _snapshots.Enqueue(snap);
+                    return;
+                }
+
                 var baseEnv = JsonConvert.DeserializeObject<UdpEnvelopeBase>(json, NetProtocol.JsonSettings);
                 if (baseEnv == null) return;
 
@@ -367,10 +393,6 @@ namespace DVBARPG.Net.Network
 
                 switch (baseEnv.Type)
                 {
-                    case "snapshot":
-                        var snap = JsonConvert.DeserializeObject<SnapshotEnvelope>(json, NetProtocol.JsonSettings);
-                        if (snap != null) _snapshots.Enqueue(snap);
-                        break;
                     case "connect_ok":
                         _connectOk = true;
                         TrySendStart();

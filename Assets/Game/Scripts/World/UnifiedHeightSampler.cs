@@ -10,11 +10,15 @@ namespace DVBARPG.Game.World
         [Header("Высота")]
         [Tooltip("Terrain, от которого берём высоту (fallback). Если не задан — найдём автоматически.")]
         [SerializeField] private Terrain terrain;
+        [Tooltip("Точка старта луча над позицией (м). Сначала луч идёт от pos + это значение вниз — так находим поверхность прямо под ногами.")]
+        [SerializeField] private float rayStartAbove = 2f;
         [Tooltip("Максимальная дистанция луча вниз (м).")]
-        [SerializeField] private float rayDistance = 200f;
-        [Tooltip("Слои, по которым ищем землю.")]
+        [SerializeField] private float rayDistance = 20f;
+        [Tooltip("Если луч от pos+rayStartAbove ничего не попал, пробуем луч с большой высоты (для первого кадра или лестниц).")]
+        [SerializeField] private float fallbackRayStartAbove = 50f;
+        [Tooltip("Слои, по которым ищем землю (коллайдеры). По умолчанию всё; сузьте до слоёв пола/террейна, чтобы не цеплять лишнее.")]
         [SerializeField] private LayerMask groundMask = ~0;
-        [Tooltip("Смещение по высоте.")]
+        [Tooltip("Смещение по высоте (например, половина высоты персонажа, если pivot в центре).")]
         [SerializeField] private float heightOffset = 0f;
 
         [Header("Исключения")]
@@ -48,8 +52,8 @@ namespace DVBARPG.Game.World
 
         private float SampleHeightInternal(Vector3 worldPosition)
         {
-            // Сначала пытаемся попасть по коллайдерам (меши, лестницы, декор).
-            var origin = worldPosition + Vector3.up * (rayDistance * 0.5f);
+            // Луч от точки чуть выше позиции вниз — первое попадание = поверхность под ногами (коллайдер).
+            var origin = worldPosition + Vector3.up * rayStartAbove;
             var count = Physics.RaycastNonAlloc(origin, Vector3.down, RayHits, rayDistance, groundMask, QueryTriggerInteraction.Ignore);
             if (count > 0)
             {
@@ -71,16 +75,36 @@ namespace DVBARPG.Game.World
                 }
 
                 if (found)
-                {
                     return bestPoint.y + heightOffset;
-                }
             }
 
-            // Если ничего не нашли — берём высоту Terrain.
-            if (terrain != null)
+            // Запасной вариант: луч с большой высоты — берём самую верхнюю поверхность под лучом (пол, а не потолок).
+            var fallbackOrigin = worldPosition + Vector3.up * fallbackRayStartAbove;
+            var fallbackDist = fallbackRayStartAbove + rayDistance;
+            count = Physics.RaycastNonAlloc(fallbackOrigin, Vector3.down, RayHits, fallbackDist, groundMask, QueryTriggerInteraction.Ignore);
+            if (count > 0)
             {
-                return terrain.SampleHeight(worldPosition) + terrain.GetPosition().y + heightOffset;
+                float topY = float.MinValue;
+                bool found = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    var hit = RayHits[i];
+                    if (hit.collider == null) continue;
+                    if (IsIgnored(hit.collider)) continue;
+                    if (hit.point.y > topY)
+                    {
+                        topY = hit.point.y;
+                        found = true;
+                    }
+                }
+
+                if (found)
+                    return topY + heightOffset;
             }
+
+            if (terrain != null)
+                return terrain.SampleHeight(worldPosition) + terrain.GetPosition().y + heightOffset;
 
             return worldPosition.y;
         }
