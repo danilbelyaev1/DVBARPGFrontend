@@ -16794,7 +16794,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2298878059674816941, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -558
+      value: -557.99994
       objectReference: {fileID: 0}
     - target: {fileID: 2298878059674816941, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -16880,13 +16880,37 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4184007359489731338, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
+      propertyPath: m_fontAsset
+      value: 
+      objectReference: {fileID: 11400000, guid: f802e05f65b0490478837a47f6acfae3, type: 2}
+    - target: {fileID: 4184007359489731338, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
+      propertyPath: m_isRightToLeft
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4184007359489731338, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
+      propertyPath: m_sharedMaterial
+      value: 
+      objectReference: {fileID: 3026690066945409203, guid: f802e05f65b0490478837a47f6acfae3, type: 2}
+    - target: {fileID: 4184007359489731338, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
+      objectReference: {fileID: 0}
+    - target: {fileID: 4184007359489731338, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
+      propertyPath: m_hasFontAssetChanged
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6766721220968743430, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
+      propertyPath: m_Camera
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 7257837372397353098, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
       propertyPath: m_Name
       value: LootTooltipCanvas
       objectReference: {fileID: 0}
     - target: {fileID: 7321151000894451840, guid: fde0df5c05b97dc40bab5e47b0c4cbce, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -17442,6 +17466,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 368981401}
+  - component: {fileID: 368981402}
   m_Layer: 0
   m_Name: Map
   m_TagString: Untagged
@@ -17473,6 +17498,31 @@ Transform:
   - {fileID: 883959489}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &368981402
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 368981400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52e852b66f834e6b993543c59e9b16e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.World.UnifiedHeightSampler
+  terrain: {fileID: 0}
+  rayStartAbove: 2
+  rayDistance: 20
+  fallbackRayStartAbove: 50
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  heightOffset: 0
+  ignoreLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  ignoreColliders: []
+  ignoreRoots: []
 --- !u!1001 &370691162
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -34910,7 +34960,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a4b8baef9801f846aca57dad3c7ae71, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.NetworkLootDropsReplicator
-  lootDropPrefab: {fileID: 0}
+  lootDropPrefab: {fileID: 4974382435571030, guid: 6066b7833d493734a9af353bbd046758, type: 3}
   dropHeightOffset: 0.5
   raycastCamera: {fileID: 961739752}
   tooltipUI: {fileID: 1316124806}
@@ -56838,8 +56888,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u0418\u043D\u0432\u0435\u043D\u0442\u0430\u0440\u044C"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: f802e05f65b0490478837a47f6acfae3, type: 2}
+  m_sharedMaterial: {fileID: 3026690066945409203, guid: f802e05f65b0490478837a47f6acfae3, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -60145,6 +60195,9 @@ MonoBehaviour:
   worldCamera: {fileID: 961739752}
   screenOffset: {x: 0, y: 24}
   maxDistance: 50
+  showAllPanels: 1
+  maxVisiblePanels: 10
+  overlapPadding: 4
 --- !u!4 &1317406603 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6528947098359608106, guid: 2d29c1ab45c5fba4c9770077c3616725, type: 3}
@@ -77944,8 +77997,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0437\u0430\u0431\u0435\u0433\u0430"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: f802e05f65b0490478837a47f6acfae3, type: 2}
+  m_sharedMaterial: {fileID: 3026690066945409203, guid: f802e05f65b0490478837a47f6acfae3, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

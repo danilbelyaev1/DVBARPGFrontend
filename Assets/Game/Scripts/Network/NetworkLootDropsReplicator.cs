@@ -41,6 +41,8 @@ namespace DVBARPG.Game.Network
                 net.Snapshot += OnSnapshot;
             if (tooltipUI == null)
                 tooltipUI = FindFirstObjectByType<LootDropTooltipUI>();
+            if (tooltipUI != null)
+                tooltipUI.SetPickupHandler(RequestPickupByIndex);
         }
 
         private void OnDisable()
@@ -56,13 +58,27 @@ namespace DVBARPG.Game.Network
             }
             _drops.Clear();
             if (tooltipUI != null)
+            {
+                tooltipUI.SetPickupHandler(null);
                 tooltipUI.Hide();
+            }
         }
 
         private void Update()
         {
-            UpdateHoverTooltip();
+            HandleTooltipModeToggle();
+            if (tooltipUI != null && tooltipUI.ShowAllPanels)
+                UpdateAllTooltips();
+            else
+                UpdateHoverTooltip();
             HandlePickupClick();
+        }
+
+        private void HandleTooltipModeToggle()
+        {
+            if (tooltipUI == null) return;
+            if (Keyboard.current != null && Keyboard.current.zKey.wasPressedThisFrame)
+                tooltipUI.ToggleDisplayMode();
         }
 
         private void UpdateHoverTooltip()
@@ -77,19 +93,40 @@ namespace DVBARPG.Game.Network
             }
         }
 
+        private void UpdateAllTooltips()
+        {
+            if (tooltipUI == null)
+                return;
+
+            var markers = new List<LootDropMarker>(_drops.Count);
+            foreach (var tr in _drops.Values)
+            {
+                if (tr == null) continue;
+                var marker = tr.GetComponent<LootDropMarker>();
+                if (marker != null) markers.Add(marker);
+            }
+            tooltipUI.ShowAll(markers);
+        }
+
         private void HandlePickupClick()
         {
             if (!IsPickupClick()) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
             var marker = RaycastLootDrop(out _);
-            if (marker == null || _session == null || !_session.IsConnected) return;
-            _session.Send(new CmdPickup { DropIndex = marker.Index });
+            if (marker == null) return;
+            RequestPickupByIndex(marker.Index);
         }
 
         private static bool IsPickupClick()
         {
             return Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+        }
+
+        private void RequestPickupByIndex(int dropIndex)
+        {
+            if (_session == null || !_session.IsConnected) return;
+            _session.Send(new CmdPickup { DropIndex = dropIndex });
         }
 
         /// <summary>Рейкаст от мыши в мир; возвращает LootDropMarker под курсором или null.</summary>
