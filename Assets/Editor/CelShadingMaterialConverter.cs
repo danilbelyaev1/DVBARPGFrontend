@@ -215,6 +215,12 @@ public static class CelShadingMaterialConverter
     static bool ShouldSkipByAssetPath(string path)
     {
         var p = path.Replace('\\', '/');
+        if (ContainsAnyOrdinalIgnoreCase(p,
+                "/polygonparticlefx/",
+                "/materials/fx/",
+                "particlefx",
+                "/vfx/"))
+            return true;
         if (p.IndexOf("/fonts/", StringComparison.OrdinalIgnoreCase) >= 0)
             return true;
         if (p.IndexOf("TextMesh Pro", StringComparison.OrdinalIgnoreCase) >= 0)

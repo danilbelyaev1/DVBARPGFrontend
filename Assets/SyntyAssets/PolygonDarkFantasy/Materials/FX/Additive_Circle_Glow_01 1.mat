@@ -21,21 +21,22 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Additive_Circle_Glow_01 1
-  m_Shader: {fileID: 4800000, guid: ce15e5a1f2b84d9e8c7f6a5b4c3d2e10, type: 3}
+  m_Shader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _SURFACE_TYPE_TRANSPARENT
-  m_InvalidKeywords:
   - _COLORADDSUBDIFF_ON
   - _FADING_ON
-  - _FLIPBOOKBLENDING_OFF
   - _SOFTPARTICLES_ON
+  - _SURFACE_TYPE_TRANSPARENT
+  m_InvalidKeywords:
+  - _FLIPBOOKBLENDING_OFF
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 1
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
+  m_CustomRenderQueue: 3000
+  stringTagMap:
+    RenderType: Transparent
   disabledShaderPasses:
   - GRABPASS
   - DepthOnly
@@ -93,7 +94,7 @@ Material:
     - _AdditionalLightsStrength: 0.25
     - _AlphaClip: 0
     - _AlphaToMask: 0
-    - _Blend: 2
+    - _Blend: 0
     - _BlendOp: 0
     - _BumpScale: 1
     - _CameraFadingEnabled: 1
@@ -110,8 +111,8 @@ Material:
     - _DistortionEnabled: 0
     - _DistortionStrength: 1
     - _DistortionStrengthScaled: 0
-    - _DstBlend: 1
-    - _DstBlendAlpha: 1
+    - _DstBlend: 10
+    - _DstBlendAlpha: 10
     - _EmissionEnabled: 0
     - _FlipbookBlending: 0
     - _FlipbookMode: 0
@@ -158,10 +159,10 @@ Material:
     - _ZWrite: 0
     m_Colors:
     - _AmbientColor: {r: 0.28, g: 0.3, b: 0.36, a: 1}
-    - _BaseColor: {r: 1, g: 0.74288446, b: 0, a: 1}
+    - _BaseColor: {r: 0.5, g: 0.37144214, b: 0, a: 1}
     - _BaseColorAddSubDiff: {r: 1, g: 0, b: 0, a: 0}
     - _CameraFadeParams: {r: 0, g: 5, b: 0, a: 0}
-    - _Color: {r: 2.9960792, g: 0.36976022, b: 0, a: 1}
+    - _Color: {r: 0.5, g: 0.3714421, b: 0, a: 1}
     - _ColorAddSubDiff: {r: 1, g: 0, b: 0, a: 0}
     - _EmisColor: {r: 0.2, g: 0.2, b: 0.2, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}

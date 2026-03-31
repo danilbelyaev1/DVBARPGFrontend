@@ -21,28 +21,30 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Generic_Circle_Multiply_01
-  m_Shader: {fileID: 4800000, guid: ce15e5a1f2b84d9e8c7f6a5b4c3d2e10, type: 3}
+  m_Shader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _ALPHATEST_ON
+  - _EMISSION
+  - _FADING_ON
+  - _SOFTPARTICLES_ON
   - _SURFACE_TYPE_TRANSPARENT
   m_InvalidKeywords:
   - _ALPHABLEND_ON
   - _BUILTIN_ALPHATEST_ON
   - _BUILTIN_AlphaClip
   - _BUILTIN_SURFACE_TYPE_TRANSPARENT
-  - _FADING_ON
-  m_LightmapFlags: 2
+  - _FLIPBOOKBLENDING_OFF
+  m_LightmapFlags: 6
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 3000
-  stringTagMap: {}
+  stringTagMap:
+    RenderType: Transparent
   disabledShaderPasses:
   - GRABPASS
   - DepthOnly
   - SHADOWCASTER
-  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -53,6 +55,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _BaseMap:
         m_Texture: {fileID: 2800000, guid: ee7c6c3f7a9e4a4197f9062d354b70ce, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -78,8 +84,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AdditionalLightsStrength: 0.25
-    - _AlphaClip: 1
-    - _AlphaToMask: 1
+    - _AlphaClip: 0
+    - _AlphaToMask: 0
     - _Alpha_Clip_Threshold: 0
     - _BUILTIN_AlphaClip: 1
     - _BUILTIN_Blend: 0
@@ -120,6 +126,7 @@ Material:
     - _Enable_Emission: 0
     - _Enable_Scene_Fog: 0
     - _Enable_Soft_Particles: 1
+    - _FlipbookBlending: 0
     - _FlipbookMode: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
@@ -169,9 +176,10 @@ Material:
     - _ZWriteControl: 0
     m_Colors:
     - _AmbientColor: {r: 0.28, g: 0.3, b: 0.36, a: 1}
-    - _BaseColor: {r: 0.67924523, g: 0.67924523, b: 0.67924523, a: 1}
+    - _BaseColor: {r: 0.33962256, g: 0.33962256, b: 0.33962256, a: 1}
+    - _BaseColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
     - _CameraFadeParams: {r: 0.1, g: 1.1111112, b: 0, a: 0}
-    - _Color: {r: 0.67924523, g: 0.67924523, b: 0.67924523, a: 1}
+    - _Color: {r: 0.33962256, g: 0.33962256, b: 0.33962256, a: 1}
     - _ColorAddSubDiff: {r: 1, g: 0, b: 0, a: 0}
     - _EmisColor: {r: 0.2, g: 0.2, b: 0.2, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
