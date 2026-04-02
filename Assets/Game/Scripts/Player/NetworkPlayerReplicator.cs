@@ -1,4 +1,10 @@
 using System.Collections.Generic;
+using System.Collections;
+using System.Linq;
+using DVBARPG.Core;
+using DVBARPG.Core.Services;
+using DVBARPG.Game.Animation;
+using DVBARPG.Game.CharacterCreation;
 using DVBARPG.Net.Network;
 using UnityEngine;
 using DVBARPG.Game.World;
@@ -42,6 +48,9 @@ namespace DVBARPG.Game.Player
         private bool _hasServerPos;
         private Vector3 _predictedPos;
         private Vector3 _targetForward = Vector3.forward;
+        private Coroutine _appearanceRoutine;
+        private SidekickAppearanceBuilder _appearanceBuilder;
+        private readonly List<GameObject> _runtimeVisualRoots = new();
 
         private void OnEnable()
         {
@@ -55,6 +64,8 @@ namespace DVBARPG.Game.Player
                 _net.Snapshot += OnSnapshot;
                 _net.MoveSent += OnMoveSent;
             }
+
+            _appearanceRoutine = StartCoroutine(LoadAndApplySelectedAppearanceRoutine());
         }
 
         private void OnDisable()
@@ -65,7 +76,169 @@ namespace DVBARPG.Game.Player
                 _net.MoveSent -= OnMoveSent;
             }
 
+            if (_appearanceRoutine != null)
+            {
+                StopCoroutine(_appearanceRoutine);
+                _appearanceRoutine = null;
+            }
+
+            ClearRuntimeVisualRoots();
+
             if (PlayerTransform == transform) PlayerTransform = null;
+        }
+
+        private IEnumerator LoadAndApplySelectedAppearanceRoutine()
+        {
+            var root = GameRoot.Instance;
+            if (root == null) yield break;
+            var profile = root.Services.Get<IProfileService>();
+            if (profile == null) yield break;
+
+            const float waitTimeout = 8f;
+            float elapsed = 0f;
+            while (elapsed < waitTimeout &&
+                   (string.IsNullOrWhiteSpace(profile.SelectedCharacterId) ||
+                    profile.Characters == null || profile.Characters.Length == 0))
+            {
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.SelectedCharacterId) || profile.Characters == null) yield break;
+            var summary = profile.Characters.FirstOrDefault(c =>
+                string.Equals(c?.Id, profile.SelectedCharacterId, System.StringComparison.OrdinalIgnoreCase));
+            if (summary == null) yield break;
+
+            var parseOk = RuntimeAppearanceParser.TryParse(summary.Appearance, out var appearance, out _);
+            if (!parseOk || appearance == null)
+            {
+                yield break;
+            }
+
+            if (_appearanceBuilder == null) _appearanceBuilder = GetComponent<SidekickAppearanceBuilder>();
+            if (_appearanceBuilder == null) _appearanceBuilder = gameObject.AddComponent<SidekickAppearanceBuilder>();
+
+            bool done = false;
+            GameObject built = null;
+            _appearanceBuilder.BuildAppearance(appearance, go =>
+            {
+                built = go;
+                done = true;
+            });
+
+            while (!done) yield return null;
+            if (built == null) yield break;
+
+            AttachVisualSafely(built);
+        }
+
+        private void AttachVisualSafely(GameObject built)
+        {
+            if (built == null) return;
+            var host = ResolveVisualHost();
+            var previousAnimators = host.GetComponentsInChildren<Animator>(true);
+            ClearRuntimeVisualRoots();
+
+            // Оставляем корень собранной модели: на нём находится Animator для нового рига.
+            built.name = "RuntimeVisual";
+            built.transform.SetParent(host, false);
+            built.transform.localPosition = Vector3.zero;
+            built.transform.localRotation = Quaternion.identity;
+            built.transform.localScale = Vector3.one;
+            _runtimeVisualRoots.Add(built);
+
+            Animator newAnimator = null;
+            for (int i = 0; i < _runtimeVisualRoots.Count && newAnimator == null; i++)
+                newAnimator = _runtimeVisualRoots[i] != null ? _runtimeVisualRoots[i].GetComponentInChildren<Animator>(true) : null;
+            if (newAnimator != null)
+            {
+                // Берём контроллер от старого боевого Animator, чтобы параметры Movement/Attack совпадали с геймплеем.
+                Animator sourceAnimator = null;
+                for (int i = 0; i < previousAnimators.Length; i++)
+                {
+                    var a = previousAnimators[i];
+                    if (a == null || a == newAnimator) continue;
+                    if (a.runtimeAnimatorController != null)
+                    {
+                        sourceAnimator = a;
+                        break;
+                    }
+                }
+                if (sourceAnimator != null && sourceAnimator.runtimeAnimatorController != null)
+                {
+                    newAnimator.runtimeAnimatorController = sourceAnimator.runtimeAnimatorController;
+                    newAnimator.updateMode = sourceAnimator.updateMode;
+                    newAnimator.cullingMode = sourceAnimator.cullingMode;
+                    // Если у новой модели нет валидного Avatar, подхватим из текущего рабочего Animator.
+                    if (newAnimator.avatar == null && sourceAnimator.avatar != null)
+                        newAnimator.avatar = sourceAnimator.avatar;
+                    newAnimator.applyRootMotion = false;
+                    newAnimator.Rebind();
+                    newAnimator.Update(0f);
+                }
+                newAnimator.enabled = true;
+
+                var movementAnimator = GetComponent<MovementAnimator>();
+                if (movementAnimator == null) movementAnimator = host.GetComponent<MovementAnimator>();
+                if (movementAnimator != null) movementAnimator.SetAnimatorOverride(newAnimator);
+
+                var abilityAnimator = GetComponent<PlayerAbilityAnimationDriver>();
+                if (abilityAnimator == null) abilityAnimator = host.GetComponent<PlayerAbilityAnimationDriver>();
+                if (abilityAnimator != null) abilityAnimator.SetAnimatorOverride(newAnimator);
+
+                // На корне Player часто остаётся старый Animator с "чужим" Avatar.
+                // Оставляем его выключенным и синхронизируем ссылки для предсказуемости в инспекторе/рантайме.
+                var playerRootAnimator = host.GetComponent<Animator>();
+                if (playerRootAnimator != null && playerRootAnimator != newAnimator)
+                {
+                    playerRootAnimator.runtimeAnimatorController = newAnimator.runtimeAnimatorController;
+                    playerRootAnimator.avatar = newAnimator.avatar;
+                    playerRootAnimator.enabled = false;
+                }
+
+                // Отключаем прочие Animator, чтобы не анимировался старый риг.
+                var allAnimators = host.GetComponentsInChildren<Animator>(true);
+                for (int i = 0; i < allAnimators.Length; i++)
+                {
+                    if (allAnimators[i] != null && allAnimators[i] != newAnimator)
+                        allAnimators[i].enabled = false;
+                }
+            }
+
+            var newSmrSet = new HashSet<SkinnedMeshRenderer>();
+            for (int i = 0; i < _runtimeVisualRoots.Count; i++)
+            {
+                if (_runtimeVisualRoots[i] == null) continue;
+                var smrs = _runtimeVisualRoots[i].GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                for (int s = 0; s < smrs.Length; s++) newSmrSet.Add(smrs[s]);
+            }
+            foreach (var smr in host.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (!newSmrSet.Contains(smr))
+                    smr.enabled = false;
+            }
+        }
+
+        private Transform ResolveVisualHost()
+        {
+            // Если репликатор висит на дочернем Network-узле, визуал нужно цеплять к Player (родителю).
+            if (transform.parent != null &&
+                string.Equals(transform.name, "Network", System.StringComparison.OrdinalIgnoreCase) &&
+                transform.parent.GetComponent<PlayerInputController>() != null)
+            {
+                return transform.parent;
+            }
+            return transform;
+        }
+
+        private void ClearRuntimeVisualRoots()
+        {
+            for (int i = 0; i < _runtimeVisualRoots.Count; i++)
+            {
+                var go = _runtimeVisualRoots[i];
+                if (go != null) Destroy(go);
+            }
+            _runtimeVisualRoots.Clear();
         }
 
         private void OnSnapshot(SnapshotEnvelope snap)

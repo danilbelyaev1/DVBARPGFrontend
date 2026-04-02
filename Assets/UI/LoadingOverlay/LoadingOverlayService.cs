@@ -64,7 +64,6 @@ namespace DVBARPG.UI.LoadingOverlay
             var prefab = overlayPrefab != null ? overlayPrefab : Resources.Load<GameObject>("Prefabs/UI/LoadingOverlay");
             if (prefab == null)
             {
-                Debug.LogWarning("LoadingOverlayService: префаб не найден. Положи LoadingOverlay.prefab в Assets/Resources/Prefabs/UI/.");
                 return;
             }
 

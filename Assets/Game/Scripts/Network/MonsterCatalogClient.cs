@@ -121,14 +121,12 @@ namespace DVBARPG.Game.Network
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void DebugLog(string message)
         {
-            Debug.Log(message);
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void DebugLogWarning(string message)
         {
-            Debug.LogWarning(message);
         }
 
         [Serializable]

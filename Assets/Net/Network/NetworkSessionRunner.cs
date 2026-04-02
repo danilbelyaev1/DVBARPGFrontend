@@ -619,14 +619,12 @@ namespace DVBARPG.Net.Network
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void DebugLog(string message)
         {
-            UnityEngine.Debug.Log(message);
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void DebugLogWarning(string message)
         {
-            UnityEngine.Debug.LogWarning(message);
         }
     }
 

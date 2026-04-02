@@ -13,12 +13,12 @@
 - `Assets/Core/GameRoot.cs` — корневой синглтон, регистрирует сервисы и запускает систему.
 - `Assets/Core/Services/AuthSession.cs` — модель авторизационной сессии.
 - `Assets/Core/Services/ClassLoadoutPresets.cs` — пресеты лоадута по классу (vanguard/hunter/mystic).
-- `Assets/Core/Services/RuntimeMetaModels.cs` — модели /runtime/seasons/current и /runtime/characters.
+- `Assets/Core/Services/RuntimeMetaModels.cs` — модели /runtime/seasons/current и /runtime/characters + backward-compatible парсер appearance (нормализация parts/blendShapes/faceBlendShapes).
 - `Assets/Core/Services/InventoryModels.cs` — DTO инвентаря (InventoryItemDto, InventoryResult и т.д.).
 - `Assets/Core/Services/MarketModels.cs` — DTO маркета и валюты (MarketListingDto, CurrencyBalanceResult и т.д.).
 - `Assets/Core/Services/ServiceInterfaces.cs` — интерфейсы сервисов (Auth/Profile/Session и т.д.).
 - `Assets/Core/Services/ServiceRegistry.cs` — простой DI-контейнер.
-- `Assets/Core/Services/CharacterAppearanceData.cs` — DTO внешности персонажа (SpeciesId, Parts, BlendShapes, FaceBlendShapes, ColorPresetId) для API и Sidekick.
+- `Assets/Core/Services/CharacterAppearanceData.cs` — DTO внешности персонажа (SpeciesId, Parts, BlendShapes, FaceBlendShapes, ColorPresetId, HairColorPresetId, SkinColorPresetId, OtherColorPresetId) для API и Sidekick.
 - `Assets/Core/Services/ClassSidekickSpeciesMap.cs` — маппинг classId → имя вида Sidekick (hunter→Elf и т.д.).
 
 ## Assets/Game/Animation
@@ -30,7 +30,7 @@
 - `Assets/Game/Camera/TopDownFollowCamera.cs` — верхняя камера с зумом и следованием.
 
 ## Assets/Game/CharacterCreation
-- `Assets/Game/CharacterCreation/SidekickAppearanceBuilder.cs` — сборка GameObject персонажа из CharacterAppearanceData (части, блендшейпы, морфы лица, цветовой пресет) для превью и Run.
+- `Assets/Game/CharacterCreation/SidekickAppearanceBuilder.cs` — сборка GameObject персонажа из CharacterAppearanceData (части, блендшейпы, морфы лица, каноничное применение цвета через единый ColorPresetId-поток Sidekick) для превью и Run.
 - `Assets/Game/CharacterCreation/PreviewRotateOnDrag.cs` — вращение объекта по зажатой ПКМ (для превью в CharacterCreate).
 
 ## Assets/Game/Combat
@@ -109,7 +109,7 @@
 ## Assets/UI
 - `Assets/UI/CharacterSelect/CharacterSelectScreen.cs` — список персонажей (префаб строки), кнопка «Играть», кнопка «Создать персонажа» → CharacterCreate.
 - `Assets/UI/CharacterSelect/SelectedClassDebugLabel.cs` — debug-лейбл выбранного класса (опционально).
-- `Assets/UI/CharacterCreate/CharacterCreateScreen.cs` — создание персонажа: класс (vanguard/hunter/mystic), пол, имя, панель внешности (заглушка); CreateCharacter + SetLoadout → CharacterSelect.
+- `Assets/UI/CharacterCreate/CharacterCreateScreen.cs` — создание персонажа: класс/пол/имя + кастомизация без одежды (волосы/борода/head parts/face sliders/цвета с единым source-of-truth через ColorPresetId); CreateCharacter + SetLoadout → CharacterSelect.
 - `Assets/UI/Dev/DevCommandsPanel.cs` — dev панель команд.
 - `Assets/UI/Login/LoginScreen.cs` — логика кнопки Login.
 - `Assets/UI/Run/AutoSkillTogglePanel.cs` — UI панель авто-скиллов + отображение ServerLoadout.

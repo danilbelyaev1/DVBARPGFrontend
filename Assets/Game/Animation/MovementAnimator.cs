@@ -53,6 +53,21 @@ namespace DVBARPG.Game.Animation
         private static readonly int AttackHash = Animator.StringToHash("Attack");
         private static readonly int AttackRangedHash = Animator.StringToHash("AttackRanged");
 
+        public void SetAnimatorOverride(Animator newAnimator)
+        {
+            animator = newAnimator;
+            if (animator != null) animator.applyRootMotion = false;
+            _paramsScanned = false;
+            _hasIsMovingBool = false;
+            _hasSpeedFloat = false;
+            _hasMoveXFloat = false;
+            _hasMoveYFloat = false;
+            _smoothedSpeed = 0f;
+            _smoothedDir = Vector2.zero;
+            _lastPos = transform.position;
+            CacheAnimatorParams();
+        }
+
         public void TriggerAttack(bool ranged)
         {
             if (animator == null) return;

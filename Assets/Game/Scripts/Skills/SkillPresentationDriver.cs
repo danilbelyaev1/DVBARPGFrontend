@@ -121,7 +121,6 @@ namespace DVBARPG.Game.Skills.Presentation
 
             if (logMissingSkills)
             {
-                Debug.LogWarning($"SkillPresentationDriver: no presentation for skill '{skillId}'.");
             }
         }
 

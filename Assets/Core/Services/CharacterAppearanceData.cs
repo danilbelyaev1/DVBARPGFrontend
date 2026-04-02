@@ -35,6 +35,10 @@ namespace DVBARPG.Core.Services
         /// <summary>ID пресета цвета кожи (только строки пресета без Hair в имени свойства).</summary>
         [JsonProperty("skinColorPresetId")]
         public int? SkinColorPresetId { get; set; }
+
+        /// <summary>ID дополнительного цветового пресета (не skin/hair), например материалы/элементы.</summary>
+        [JsonProperty("otherColorPresetId")]
+        public int? OtherColorPresetId { get; set; }
     }
 
     [Serializable]

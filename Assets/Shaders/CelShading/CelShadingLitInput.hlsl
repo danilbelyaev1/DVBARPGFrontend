@@ -14,6 +14,7 @@ CBUFFER_START(UnityPerMaterial)
     half _SpecularIntensity;
     half _SpecularAlbedoMix;
     half _SpecularLightMix;
+    half _SpecularBrightAlbedoReduce;
     half4 _RimColor;
     half _RimAmount;
     half _RimThreshold;

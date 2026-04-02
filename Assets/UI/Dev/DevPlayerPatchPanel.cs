@@ -154,7 +154,6 @@ namespace DVBARPG.UI.Dev
         {
             var sessionService = GameRoot.Instance?.Services?.Get<ISessionService>();
             _net = sessionService as NetworkSessionRunner;
-            Debug.Log($"[DevDebug] DevPlayerPatchPanel.OnEnable netAssigned={_net != null}");
 
             if (toggleButton != null) toggleButton.onClick.AddListener(ToggleVisible);
             if (applyButton != null) applyButton.onClick.AddListener(ApplyDebugPatch);
@@ -239,7 +238,6 @@ namespace DVBARPG.UI.Dev
                 if (profile != null)
                 {
                     var skillsLen = profile.ServerSkills != null ? profile.ServerSkills.Length : 0;
-                    Debug.Log($"[DevDebug] DevPanel.Update prefill check: hasLoadout={profile.ServerLoadout != null} skills={skillsLen} baseMoveSpeed={profile.BaseMoveSpeed}");
 
                     if (profile.ServerLoadout != null || (profile.ServerSkills != null && profile.ServerSkills.Length > 0) || profile.BaseMoveSpeed > 0f)
                     {
@@ -278,7 +276,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logSkillCatalogErrors)
                 {
-                    Debug.LogWarning("DevPlayerPatchPanel: Profile auth is missing, cannot load skills catalog.");
                 }
                 yield break;
             }
@@ -288,7 +285,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logSkillCatalogErrors)
                 {
-                    Debug.LogWarning("DevPlayerPatchPanel: runtime base url is empty, cannot load skills catalog.");
                 }
                 yield break;
             }
@@ -304,7 +300,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logSkillCatalogErrors)
                 {
-                    Debug.LogWarning($"DevPlayerPatchPanel: skills/catalog request failed. url={skillsUrl} status={req.responseCode} error={req.error}");
                 }
                 yield break;
             }
@@ -319,7 +314,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logSkillCatalogErrors)
                 {
-                    Debug.LogWarning($"DevPlayerPatchPanel: skills/catalog parse error: {e.Message}");
                 }
                 yield break;
             }
@@ -343,7 +337,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logSkillCatalogErrors)
                 {
-                    Debug.LogWarning("DevPlayerPatchPanel: skills catalog is empty.");
                 }
                 yield break;
             }
@@ -365,7 +358,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logDebugSnapshotErrors)
                 {
-                    Debug.LogWarning("DevPlayerPatchPanel: profile or auth is missing, cannot call /debug/player.");
                 }
                 yield break;
             }
@@ -376,7 +368,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logDebugSnapshotErrors)
                 {
-                    Debug.LogWarning("DevPlayerPatchPanel: runtime base url is empty, cannot call /debug/player.");
                 }
                 yield break;
             }
@@ -391,7 +382,6 @@ namespace DVBARPG.UI.Dev
             req.timeout = 10;
             req.SetRequestHeader("Authorization", $"Bearer {auth.Token}");
 
-            Debug.Log($"[DevDebug] DevPlayerPatchPanel: GET {url} (/debug/player)");
 
             yield return req.SendWebRequest();
 
@@ -399,7 +389,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logDebugSnapshotErrors)
                 {
-                    Debug.LogWarning($"DevPlayerPatchPanel: /debug/player request failed. url={url} status={req.responseCode} error={req.error} body={req.downloadHandler?.text}");
                 }
                 yield break;
             }
@@ -414,7 +403,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logDebugSnapshotErrors)
                 {
-                    Debug.LogWarning($"DevPlayerPatchPanel: /debug/player parse error: {e.Message} body={json}");
                 }
                 yield break;
             }
@@ -423,7 +411,6 @@ namespace DVBARPG.UI.Dev
             {
                 if (logDebugSnapshotErrors)
                 {
-                    Debug.LogWarning($"DevPlayerPatchPanel: /debug/player returned error ok={response?.Ok} error={response?.Error}");
                 }
                 yield break;
             }
@@ -516,7 +503,6 @@ namespace DVBARPG.UI.Dev
             var skillsLen = profile.ServerSkills != null ? profile.ServerSkills.Length : 0;
             var hasLoadout = profile.ServerLoadout != null;
             var hasSpeed = profile.BaseMoveSpeed > 0f;
-            Debug.Log($"[DevDebug] PrefillFromProfile: hasLoadout={hasLoadout} skills={skillsLen} baseMoveSpeed={profile.BaseMoveSpeed}");
 
             // Если данных ещё нет — не помечаем как префиллнутый, чтобы повторить попытку позже.
             if (!hasLoadout && skillsLen == 0 && !hasSpeed)
@@ -722,7 +708,6 @@ namespace DVBARPG.UI.Dev
 
             var statCount = cmd.StatPatch != null ? cmd.StatPatch.Count : 0;
             var skillsCount = cmd.Skills != null ? cmd.Skills.Count : 0;
-            Debug.Log($"[DevDebug] ApplyDebugPatch: statPatchCount={statCount} skillsCount={skillsCount} hasLoadout={cmd.CombatLoadout != null} replaceSkills={cmd.ReplaceSkills}");
 
             _net.Send(cmd);
             SetStatus("Debug patch отправлен. Проверь снапшот (урон/кд/скиллы).");

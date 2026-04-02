@@ -11,6 +11,7 @@ Shader "GameClient/CelShadingLit"
         _SpecularIntensity("Specular Intensity", Float) = 0.85
         _SpecularAlbedoMix("Specular To Albedo Mix", Range(0, 1)) = 0.55
         _SpecularLightMix("Specular From Light Mix", Range(0, 1)) = 0.35
+        _SpecularBrightAlbedoReduce("Reduce Specular On Bright Albedo", Range(0, 1)) = 0.45
 
         [HDR] _RimColor("Rim Color", Color) = (0.85, 0.9, 1, 1)
         _RimAmount("Rim Amount", Range(0, 1)) = 0.716

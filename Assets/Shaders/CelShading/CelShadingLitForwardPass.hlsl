@@ -156,6 +156,11 @@ void CelShadingLitPassFragment(
     half3 specTint = lerp(CelClampHdrRgb(_SpecularColor.rgb, 1.0h), albedo, albMix);
     half3 specLight = lerp(half3(1.0h, 1.0h, 1.0h), mainCol, ltMix);
     half3 specularContrib = specMask * specTint * specLight * 0.42h;
+    // Preserve light-hair gradients: reduce specular when albedo is already bright.
+    half albedoLuma = dot(albedo, half3(0.299h, 0.587h, 0.114h));
+    half brightAlbedo = smoothstep(0.65h, 1.0h, albedoLuma);
+    half brightReduce = lerp(1.0h, 1.0h - saturate(_SpecularBrightAlbedoReduce), brightAlbedo);
+    specularContrib *= brightReduce;
 
     half rimDot = 1.0h - saturate(dot(V, N));
     half rimIntensity = rimDot * pow(saturate(NdotL), max(_RimThreshold, 1e-4h));

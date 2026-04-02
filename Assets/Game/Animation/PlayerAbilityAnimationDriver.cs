@@ -157,33 +157,17 @@ namespace DVBARPG.Game.Animation
         /// <summary>True, если сейчас проигрывается атака на одном из слоёв (поворот к цели не применяют).</summary>
         public bool IsPlayingAttackAnimation => _isPlayingAttack;
 
+        public void SetAnimatorOverride(Animator newAnimator)
+        {
+            animator = newAnimator;
+            InitializeAnimatorBindings();
+        }
+
         private void Awake()
         {
             if (animator == null) animator = GetComponent<Animator>();
             if (animator == null) animator = GetComponentInChildren<Animator>();
-            _fallbackHash = Animator.StringToHash(fallbackTrigger);
-            if (animator != null)
-            {
-                animator.applyRootMotion = false; // поворот/сдвиг корня только из кода
-                _attackLayerIndexes.Clear();
-                _attackLayerReady.Clear();
-                for (int i = 0; i < attackLayerNames.Count; i++)
-                {
-                    var idx = animator.GetLayerIndex(attackLayerNames[i]);
-                    _attackLayerIndexes.Add(idx);
-                    _attackLayerReady.Add(idx >= 0);
-                    if (idx >= 0 && controlAttackLayerWeight)
-                    {
-                        animator.SetLayerWeight(idx, 0f);
-                    }
-                }
-            }
-
-            _castModeHash = Animator.StringToHash(castModeParam);
-            _useSkillHash = Animator.StringToHash(useSkillParam);
-            _resolvedAttackSpeedParam = ResolveAttackSpeedParam();
-            _attackSpeedHash = string.IsNullOrEmpty(_resolvedAttackSpeedParam) ? 0 : Animator.StringToHash(_resolvedAttackSpeedParam);
-            _isMovingHash = string.IsNullOrEmpty(isMovingParam) ? 0 : Animator.StringToHash(isMovingParam);
+            InitializeAnimatorBindings();
 
             _map.Clear();
             _attackStateHashes.Clear();
@@ -248,6 +232,30 @@ namespace DVBARPG.Game.Animation
                 _weaponDefaultByType[e.WeaponType] = e.TriggerName;
                 _attackStateHashes.Add(Animator.StringToHash(e.TriggerName));
             }
+        }
+
+        private void InitializeAnimatorBindings()
+        {
+            _fallbackHash = Animator.StringToHash(fallbackTrigger);
+            if (animator != null)
+            {
+                animator.applyRootMotion = false; // поворот/сдвиг корня только из кода
+                _attackLayerIndexes.Clear();
+                _attackLayerReady.Clear();
+                for (int i = 0; i < attackLayerNames.Count; i++)
+                {
+                    var idx = animator.GetLayerIndex(attackLayerNames[i]);
+                    _attackLayerIndexes.Add(idx);
+                    _attackLayerReady.Add(idx >= 0);
+                    if (idx >= 0 && controlAttackLayerWeight)
+                        animator.SetLayerWeight(idx, 0f);
+                }
+            }
+            _castModeHash = Animator.StringToHash(castModeParam);
+            _useSkillHash = Animator.StringToHash(useSkillParam);
+            _resolvedAttackSpeedParam = ResolveAttackSpeedParam();
+            _attackSpeedHash = string.IsNullOrEmpty(_resolvedAttackSpeedParam) ? 0 : Animator.StringToHash(_resolvedAttackSpeedParam);
+            _isMovingHash = string.IsNullOrWhiteSpace(isMovingParam) ? 0 : Animator.StringToHash(isMovingParam);
         }
 
         /// <summary>Воспроизвести анимацию скилла. Если в текущем слое нет анимации для скилла — используется дефолт по типу оружия (классу).</summary>

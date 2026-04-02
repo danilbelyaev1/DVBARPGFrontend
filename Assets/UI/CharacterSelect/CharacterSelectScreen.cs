@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DVBARPG.Core;
 using DVBARPG.Core.Services;
+using DVBARPG.Game.CharacterCreation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -24,6 +25,14 @@ namespace DVBARPG.UI.CharacterSelect
         [SerializeField] private GameObject previewPanel;
         [Tooltip("Текст в превью (имя и/или описание выделенного персонажа).")]
         [SerializeField] private Text previewText;
+        [Tooltip("Пивот для 3D-превью персонажа в окне выбора.")]
+        [SerializeField] private Transform characterPreviewPivot;
+        [Tooltip("Сборщик Sidekick для 3D-превью в CharacterSelect.")]
+        [SerializeField] private SidekickAppearanceBuilder appearanceBuilder;
+        [Tooltip("Масштаб 3D-превью в CharacterSelect.")]
+        [SerializeField] private Vector3 previewScale = new Vector3(20f, 20f, 20f);
+        [Tooltip("Animator Controller для превью (например PlayerAnimator). Если не задан, ищется по имени 'PlayerAnimator'.")]
+        [SerializeField] private RuntimeAnimatorController previewAnimatorController;
 
         [Header("Кнопки")]
         [Tooltip("Единая кнопка «Играть» — видна только когда выделен персонаж.")]
@@ -51,9 +60,42 @@ namespace DVBARPG.UI.CharacterSelect
         private readonly List<GameObject> _spawnedRows = new List<GameObject>();
         private RuntimeCharacterSummary[] _lastCharacters;
         private string _selectedCharacterId;
+        private GameObject _previewInstance;
+        private int _previewRequestVersion;
+
+        private RuntimeAnimatorController ResolvePreviewAnimatorController()
+        {
+            if (previewAnimatorController != null) return previewAnimatorController;
+            var animators = FindObjectsByType<Animator>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < animators.Length; i++)
+            {
+                var c = animators[i] != null ? animators[i].runtimeAnimatorController : null;
+                if (c != null && string.Equals(c.name, "PlayerAnimator", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    previewAnimatorController = c;
+                    return previewAnimatorController;
+                }
+            }
+            return null;
+        }
 
         private void Awake()
         {
+            if (appearanceBuilder == null) appearanceBuilder = GetComponent<SidekickAppearanceBuilder>();
+            if (appearanceBuilder == null) appearanceBuilder = gameObject.AddComponent<SidekickAppearanceBuilder>();
+            if (characterPreviewPivot == null && previewPanel != null)
+            {
+                var existing = previewPanel.transform.Find("CharacterPreviewPivot");
+                if (existing != null) characterPreviewPivot = existing;
+                else
+                {
+                    var pivot = new GameObject("CharacterPreviewPivot");
+                    pivot.transform.SetParent(previewPanel.transform, false);
+                    characterPreviewPivot = pivot.transform;
+                }
+            }
+            if (characterPreviewPivot != null && characterPreviewPivot.GetComponent<PreviewRotateOnDrag>() == null)
+                characterPreviewPivot.gameObject.AddComponent<PreviewRotateOnDrag>();
             if (createCharacterButton != null)
                 createCharacterButton.onClick.AddListener(LoadCharacterCreateScene);
             if (playButton != null)
@@ -73,20 +115,17 @@ namespace DVBARPG.UI.CharacterSelect
         {
             if (GameRoot.Instance == null)
             {
-                Debug.LogWarning("CharacterSelectScreen: GameRoot не найден. Запускайте игру со сцены Login или Bootstrap.");
                 SetStatus("GameRoot не найден.");
                 return;
             }
             _profile = GameRoot.Instance.Services.Get<IProfileService>();
             if (_profile == null)
             {
-                Debug.LogWarning("CharacterSelectScreen: IProfileService не найден.");
                 SetStatus("Профиль недоступен.");
                 return;
             }
             if (!autoFetchMeta)
             {
-                Debug.Log("CharacterSelectScreen: autoFetchMeta выключен, загрузка не выполняется.");
                 return;
             }
             var auth = GameRoot.Instance.Services.Get<IAuthService>();
@@ -102,6 +141,7 @@ namespace DVBARPG.UI.CharacterSelect
             if (playButton != null) playButton.onClick.RemoveAllListeners();
             if (deleteButton != null) deleteButton.onClick.RemoveAllListeners();
             ClearSpawnedRows();
+            if (_previewInstance != null) Destroy(_previewInstance);
         }
 
         private void FetchCharactersAndSeason()
@@ -111,13 +151,11 @@ namespace DVBARPG.UI.CharacterSelect
             var meta = GameRoot.Instance?.Services?.Get<IRuntimeMetaService>();
             if (meta == null)
             {
-                Debug.LogWarning("CharacterSelectScreen: IRuntimeMetaService не найден.");
                 SetStatus("Сервис недоступен.");
                 return;
             }
             if (_profile.CurrentAuth == null)
             {
-                Debug.LogWarning("CharacterSelectScreen: CurrentAuth == null, запрос к бэку может не пройти.");
             }
 
             SetStatus("Загрузка...");
@@ -126,7 +164,6 @@ namespace DVBARPG.UI.CharacterSelect
                 if (season == null || !season.Ok)
                 {
                     var err = season?.Error ?? "Ошибка сезона.";
-                    Debug.LogWarning($"CharacterSelectScreen: сезон — {err}");
                     SetStatus(err);
                     return;
                 }
@@ -136,7 +173,6 @@ namespace DVBARPG.UI.CharacterSelect
                     if (characters == null || !characters.Ok)
                     {
                         var err = characters?.Error ?? "Ошибка загрузки персонажей.";
-                        Debug.LogWarning($"CharacterSelectScreen: персонажи — {err}");
                         SetStatus(err);
                         return;
                     }
@@ -155,8 +191,6 @@ namespace DVBARPG.UI.CharacterSelect
             _lastCharacters = characters;
             if (characterListContent == null || characterRowPrefab == null || characters == null)
             {
-                if (characterListContent == null) Debug.LogWarning("CharacterSelectScreen: Character List Content не назначен.");
-                if (characterRowPrefab == null) Debug.LogWarning("CharacterSelectScreen: Character Row Prefab не назначен.");
                 return;
             }
 
@@ -215,10 +249,76 @@ namespace DVBARPG.UI.CharacterSelect
             if (previewPanel != null) previewPanel.SetActive(!string.IsNullOrEmpty(_selectedCharacterId));
             if (previewText == null || _lastCharacters == null) return;
             var summary = FindCharacter(_selectedCharacterId);
-            if (summary == null) { previewText.text = ""; return; }
+            if (summary == null)
+            {
+                previewText.text = "";
+                ClearPreviewVisual();
+                return;
+            }
             var name = string.IsNullOrEmpty(summary.Name) ? summary.Id : summary.Name;
             var genderLabel = string.IsNullOrEmpty(summary.Gender) ? "" : (summary.Gender == "female" ? " (Ж)" : " (М)");
             previewText.text = name + genderLabel;
+            RefreshCharacterPreview(summary);
+        }
+
+        private void ClearPreviewVisual()
+        {
+            _previewRequestVersion++;
+            if (_previewInstance != null)
+            {
+                Destroy(_previewInstance);
+                _previewInstance = null;
+            }
+        }
+
+        private void RefreshCharacterPreview(RuntimeCharacterSummary summary)
+        {
+            if (appearanceBuilder == null || characterPreviewPivot == null)
+            {
+                ClearPreviewVisual();
+                return;
+            }
+
+            var appearance = RuntimeAppearanceParser.Parse(summary?.Appearance);
+            if (appearance == null)
+            {
+                ClearPreviewVisual();
+                return;
+            }
+
+            if (_previewInstance != null)
+            {
+                Destroy(_previewInstance);
+                _previewInstance = null;
+            }
+
+            int version = ++_previewRequestVersion;
+            appearanceBuilder.BuildAppearance(appearance, go =>
+            {
+                if (version != _previewRequestVersion || go == null)
+                {
+                    if (go != null) Destroy(go);
+                    return;
+                }
+                go.transform.SetParent(characterPreviewPivot, false);
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                go.transform.localScale = previewScale;
+                EnsurePreviewAnimator(go, ResolvePreviewAnimatorController());
+                _previewInstance = go;
+            });
+        }
+
+        private static void EnsurePreviewAnimator(GameObject go, RuntimeAnimatorController controller)
+        {
+            if (go == null) return;
+            var animator = go.GetComponentInChildren<Animator>(true);
+            if (animator == null) return;
+            if (controller != null) animator.runtimeAnimatorController = controller;
+            animator.applyRootMotion = false;
+            animator.enabled = true;
+            animator.Rebind();
+            animator.Update(0f);
         }
 
         private void UpdatePlayButtonVisibility()
@@ -282,18 +382,41 @@ namespace DVBARPG.UI.CharacterSelect
             }
 
             SetStatus("Удаление...");
+            var deletingId = _selectedCharacterId;
             meta.DeleteCharacter(_profile.CurrentAuth, _selectedCharacterId, result =>
             {
                 if (result == null || !result.Ok)
                 {
                     var err = result?.Error ?? "Ошибка удаления.";
                     SetStatus(err);
+                    Debug.LogError($"Character delete failed. characterId={_selectedCharacterId}, error={err}");
                     return;
                 }
-                _selectedCharacterId = null;
-                _profile.SetSelectedCharacter(null);
+                RemoveCharacterLocally(deletingId);
+                SetStatus("Персонаж удалён.");
                 FetchCharactersAndSeason();
             });
+        }
+
+        private void RemoveCharacterLocally(string characterId)
+        {
+            if (string.IsNullOrWhiteSpace(characterId) || _lastCharacters == null) return;
+            var list = new List<RuntimeCharacterSummary>(_lastCharacters.Length);
+            for (int i = 0; i < _lastCharacters.Length; i++)
+            {
+                var c = _lastCharacters[i];
+                if (c == null) continue;
+                if (string.Equals(c.Id, characterId, System.StringComparison.OrdinalIgnoreCase)) continue;
+                list.Add(c);
+            }
+            _lastCharacters = list.ToArray();
+            _profile?.SetCharacters(_lastCharacters);
+            if (string.Equals(_selectedCharacterId, characterId, System.StringComparison.OrdinalIgnoreCase))
+            {
+                _selectedCharacterId = _lastCharacters.Length > 0 ? _lastCharacters[0].Id : null;
+                _profile?.SetSelectedCharacter(_selectedCharacterId);
+            }
+            BuildCharacterList(_lastCharacters);
         }
 
         private void ClearSpawnedRows()

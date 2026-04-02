@@ -455,7 +455,8 @@ namespace DVBARPG.Net.Network
 
             if (req.result != UnityWebRequest.Result.Success)
             {
-                onDone?.Invoke(new DeleteCharacterResult { Ok = false, Error = req.error });
+                var serverError = ExtractServerError(req);
+                onDone?.Invoke(new DeleteCharacterResult { Ok = false, Error = string.IsNullOrWhiteSpace(serverError) ? req.error : serverError });
                 yield break;
             }
 
@@ -475,6 +476,27 @@ namespace DVBARPG.Net.Network
             }
 
             onDone?.Invoke(result);
+        }
+
+        private static string ExtractServerError(UnityWebRequest req)
+        {
+            try
+            {
+                var body = req.downloadHandler?.text;
+                if (string.IsNullOrWhiteSpace(body)) return null;
+                var obj = JObject.Parse(body);
+                var error = obj["error"]?.Value<string>();
+                var message = obj["message"]?.Value<string>();
+                if (!string.IsNullOrWhiteSpace(error) && !string.IsNullOrWhiteSpace(message))
+                    return $"{error}: {message}";
+                if (!string.IsNullOrWhiteSpace(error)) return error;
+                if (!string.IsNullOrWhiteSpace(message)) return message;
+                return body.Length > 512 ? body.Substring(0, 512) + "..." : body;
+            }
+            catch
+            {
+                return req.downloadHandler?.text;
+            }
         }
 
         private string BuildUrl(string path)
@@ -500,35 +522,7 @@ namespace DVBARPG.Net.Network
 
         private IEnumerator SendWithLogging(UnityWebRequest req, string method, string url, string body)
         {
-            if (logHttpTraffic)
-            {
-                var shortBody = body;
-                if (!string.IsNullOrEmpty(shortBody) && shortBody.Length > 512)
-                {
-                    shortBody = shortBody.Substring(0, 512) + "...";
-                }
-
-                var apiKeyLabel = string.IsNullOrWhiteSpace(apiKey) ? "<none>" : "***";
-                Debug.Log($"[HTTP] {method} {url}\n" +
-                          $"Headers: Authorization=Bearer ****, X-Api-Key={apiKeyLabel}, Contract={contractVersion}\n" +
-                          $"Body: {shortBody}");
-            }
-
             yield return req.SendWebRequest();
-
-            if (logHttpTraffic)
-            {
-                var text = req.downloadHandler != null ? req.downloadHandler.text : "";
-                string shortText = text;
-                if (!string.IsNullOrEmpty(shortText) && shortText.Length > 1024)
-                {
-                    shortText = shortText.Substring(0, 1024) + "...";
-                }
-
-                Debug.Log($"[HTTP] RESPONSE {method} {url}\n" +
-                          $"Status: {(int)req.responseCode} {req.result}\n" +
-                          $"Body: {shortText}");
-            }
         }
 
 
@@ -552,7 +546,7 @@ namespace DVBARPG.Net.Network
             [JsonProperty("id")] public string Id { get; set; }
             [JsonProperty("name")] public string Name { get; set; }
             [JsonProperty("gender")] public string Gender { get; set; }
-            [JsonProperty("appearance")] public JObject Appearance { get; set; }
+            [JsonProperty("appearance")] public JToken Appearance { get; set; }
             [JsonProperty("seasons")] public string[] Seasons { get; set; }
         }
 
