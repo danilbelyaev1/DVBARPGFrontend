@@ -55,6 +55,11 @@
 - `Assets/Game/Network/FloatingDamageText.cs` — визуализация всплывающего урона.
 - `Assets/Game/Network/NetworkDamageFromSnapshots.cs` — вывод урона по снапшотам.
 - `Assets/Game/Network/NetworkMonstersReplicator.cs` — репликация монстров из снапшотов.
+- `Assets/Game/Network/EnemySkinCatalog.cs` — ScriptableObject-каталог `skinId` монстров (`monsterType`, `fallbackPrefab`, `animationSetId`, default по типу).
+- `Assets/Game/Network/EnemyAnimationSetCatalog.cs` — ScriptableObject-каталог `animationSetId` (`baseController`, `overrideController`, `avatar`).
+- `Assets/Game/Network/EnemyVisualHost.cs` — хост текущего визуала монстра (замена child-визуала в рантайме).
+- `Assets/Game/Network/EnemySkinResolver.cs` — рантайм-резолвер skinId: выбор скина из каталога и применение визуала/анимаций.
+- `Assets/Game/Network/EnemyAnimationBinder.cs` — применение набора анимаций по `animationSetId` к Animator визуала.
 - `Assets/Game/Network/NetworkLootDropsReplicator.cs` — репликация дропов лута (золото/предметы), подбор по клику, команда pickup.
 - `Assets/Game/Network/LootDropMarker.cs` — данные дропа на инстансе (Index, Type, Rarity, DisplayText); цвет рарности для тултипа.
 - `Assets/Game/Network/LootDropTooltipUI.cs` — рамка с названием предмета при наведении (стиль PoE), цвет по рарности.

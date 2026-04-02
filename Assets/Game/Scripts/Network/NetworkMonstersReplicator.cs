@@ -21,6 +21,14 @@ namespace DVBARPG.Game.Network
         [Tooltip("Сглаживание позиции (0 = выключено).")]
         [SerializeField] private float positionSmoothing = 12f;
 
+        [Header("Скины врагов")]
+        [Tooltip("Каталог skinId -> визуал/animationSetId.")]
+        [SerializeField] private EnemySkinCatalog enemySkinCatalog;
+        [Tooltip("Каталог animationSetId -> controller/override/avatar.")]
+        [SerializeField] private EnemyAnimationSetCatalog enemyAnimationSetCatalog;
+        [Tooltip("Fallback skinId, если для типа нет записи в каталоге.")]
+        [SerializeField] private string fallbackSkinId = "";
+
         [Header("Оптимизация высоты")]
         [Tooltip("Как часто обновлять высоту по коллайдерам для монстров (сек). 0 = каждый кадр.")]
         [SerializeField] private float heightSampleIntervalSec = 0.1f;
@@ -32,8 +40,10 @@ namespace DVBARPG.Game.Network
         private readonly Dictionary<Guid, MonsterAnimationDriver> _animCache = new();
         private readonly Dictionary<Guid, float> _lastHeightSampleTime = new();
         private readonly Dictionary<Guid, Vector3> _lastHeightSamplePos = new();
+        private readonly Dictionary<Guid, string> _appliedSkinByMonster = new();
         private readonly HashSet<Guid> _seen = new();
         private readonly List<Guid> _toDisable = new();
+        private static readonly Dictionary<Guid, string> SkinOverrides = new();
 
         private void OnEnable()
         {
@@ -70,6 +80,8 @@ namespace DVBARPG.Game.Network
                         Registry[m.Id] = tr;
                     }
 
+                    ApplySkinIfNeeded(m.Id, m.Type, tr);
+
                     var hasFrom = TryGetMonsterPos(from, m.Id, out var fromPos);
                     var toPos = new Vector3(m.X, 0f, m.Y);
 
@@ -98,7 +110,7 @@ namespace DVBARPG.Game.Network
 
                     if (!_animCache.TryGetValue(m.Id, out var monsterAnim) || monsterAnim == null)
                     {
-                        monsterAnim = tr.GetComponent<MonsterAnimationDriver>();
+                        monsterAnim = tr.GetComponentInChildren<MonsterAnimationDriver>(true);
                         _animCache[m.Id] = monsterAnim;
                     }
                     if (monsterAnim != null)
@@ -124,8 +136,61 @@ namespace DVBARPG.Game.Network
                     _animCache.Remove(id);
                     _lastHeightSampleTime.Remove(id);
                     _lastHeightSamplePos.Remove(id);
+                    _appliedSkinByMonster.Remove(id);
+                    SkinOverrides.Remove(id);
                 }
             }
+        }
+
+        private void ApplySkinIfNeeded(Guid monsterId, string monsterType, Transform tr)
+        {
+            if (tr == null) return;
+            var desiredSkinId = ResolveDesiredSkinId(monsterId, monsterType);
+            if (string.IsNullOrWhiteSpace(desiredSkinId))
+            {
+                _appliedSkinByMonster[monsterId] = string.Empty;
+                return;
+            }
+            if (_appliedSkinByMonster.TryGetValue(monsterId, out var applied) &&
+                string.Equals(applied, desiredSkinId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            var resolver = tr.GetComponent<EnemySkinResolver>();
+            if (resolver == null) resolver = tr.gameObject.AddComponent<EnemySkinResolver>();
+
+            var fallbackVisual = monsterPrefab != null ? monsterPrefab.gameObject : null;
+            var fallbackAnimator = fallbackVisual != null ? fallbackVisual.GetComponentInChildren<Animator>(true) : null;
+            resolver.Initialize(
+                enemySkinCatalog,
+                enemyAnimationSetCatalog,
+                fallbackVisual,
+                fallbackAnimator != null ? fallbackAnimator.runtimeAnimatorController : null);
+
+            if (resolver.ApplySkin(monsterType, desiredSkinId))
+                _appliedSkinByMonster[monsterId] = desiredSkinId;
+        }
+
+        private string ResolveDesiredSkinId(Guid monsterId, string monsterType)
+        {
+            if (SkinOverrides.TryGetValue(monsterId, out var overrideSkin) && !string.IsNullOrWhiteSpace(overrideSkin))
+                return overrideSkin;
+
+            if (enemySkinCatalog != null && enemySkinCatalog.TryGetDefaultForType(monsterType, out var byType) &&
+                !string.IsNullOrWhiteSpace(byType.skinId))
+                return byType.skinId;
+
+            return fallbackSkinId;
+        }
+
+        public static void SetSkinOverride(Guid monsterId, string skinId)
+        {
+            if (string.IsNullOrWhiteSpace(skinId)) return;
+            SkinOverrides[monsterId] = skinId;
+        }
+
+        public static void ClearSkinOverride(Guid monsterId)
+        {
+            SkinOverrides.Remove(monsterId);
         }
 
         private static bool TryGetMonsterPos(SnapshotEnvelope snap, Guid id, out Vector3 pos)
