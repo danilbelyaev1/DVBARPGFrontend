@@ -8,25 +8,26 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Generic_Lightray_01
-  m_Shader: {fileID: 4800000, guid: ce15e5a1f2b84d9e8c7f6a5b4c3d2e10, type: 3}
+  m_Shader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
-  - _ALPHATEST_ON
+  - _EMISSION
   - _SURFACE_TYPE_TRANSPARENT
   m_InvalidKeywords:
   - _BUILTIN_SURFACE_TYPE_TRANSPARENT
+  - _FLIPBOOKBLENDING_OFF
   - _GLOSSYREFLECTIONS_OFF
   - _SPECULARHIGHLIGHTS_OFF
-  m_LightmapFlags: 3
+  m_LightmapFlags: 7
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 3000
-  stringTagMap: {}
+  stringTagMap:
+    RenderType: Transparent
   disabledShaderPasses:
   - DepthOnly
   - SHADOWCASTER
-  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -37,6 +38,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _BaseMap:
         m_Texture: {fileID: 2800000, guid: ad29a3f834a0477e8b4b6df2c9c57fa0, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -62,8 +67,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AdditionalLightsStrength: 0.25
-    - _AlphaClip: 1
-    - _AlphaToMask: 1
+    - _AlphaClip: 0
+    - _AlphaToMask: 0
     - _Alpha_Clip_Threshold: 0
     - _BUILTIN_AlphaClip: 0
     - _BUILTIN_Blend: 0
@@ -77,23 +82,34 @@ Material:
     - _BUILTIN_ZWrite: 0
     - _BUILTIN_ZWriteControl: 0
     - _Blend: 0
+    - _BlendOp: 0
     - _BumpScale: 1
+    - _CameraFadingEnabled: 0
+    - _CameraFarFadeDistance: 2
+    - _CameraNearFadeDistance: 1
     - _Camera_Fade_Far: 20
     - _Camera_Fade_Near: 0
     - _Camera_Fade_Smoothness: 1.5
     - _CastShadows: 0
     - _CelHighlightStart: 0.42
     - _CelMidMul: 0.58
+    - _ColorMode: 0
     - _Cull: 2
     - _Cutoff: 0
     - _DetailNormalMapScale: 1
     - _DirectLightScale: 0.72
+    - _DistortionBlend: 0.5
+    - _DistortionEnabled: 0
+    - _DistortionStrength: 1
+    - _DistortionStrengthScaled: 0.1
     - _DstBlend: 10
     - _DstBlendAlpha: 10
     - _Enable_Camera_Fade: 0
     - _Enable_Emission: 0
     - _Enable_Scene_Fog: 0
     - _Enable_Soft_Particles: 1
+    - _FlipbookBlending: 0
+    - _FlipbookMode: 0
     - _GlossMapScale: 1
     - _Glossiness: 0
     - _GlossyReflections: 0
@@ -103,6 +119,7 @@ Material:
     - _InvFade: 3
     - _LightBandLower: -0.08
     - _LightBandUpper: 0.09
+    - _LightingEnabled: 1
     - _MaxDiffuseIrradiance: 1
     - _MaxOutputRgb: 1.1
     - _Metallic: 0
@@ -119,6 +136,9 @@ Material:
     - _RimThreshold: 0.1
     - _ShadowStep: 0.22
     - _SmoothnessTextureChannel: 0
+    - _SoftParticlesEnabled: 0
+    - _SoftParticlesFarFadeDistance: 1
+    - _SoftParticlesNearFadeDistance: 0
     - _Soft_Distance: 1
     - _Soft_Power: 1.09
     - _SpecularAlbedoMix: 0.55
@@ -138,14 +158,17 @@ Material:
     - _ZWriteControl: 0
     m_Colors:
     - _AmbientColor: {r: 0.28, g: 0.3, b: 0.36, a: 1}
-    - _BaseColor: {r: 2, g: 1.527125, b: 0.83599997, a: 1}
-    - _Color: {r: 1, g: 1, b: 1, a: 0}
+    - _BaseColor: {r: 0.8787061, g: 0.5940865, b: 0.2608714, a: 1}
+    - _BaseColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
+    - _CameraFadeParams: {r: 0, g: Infinity, b: 0, a: 0}
+    - _Color: {r: 0.8787061, g: 0.5940865, b: 0.2608714, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _Emission_Color: {r: 0, g: 0, b: 0, a: 0}
     - _InkColor: {r: 0, g: 0, b: 0, a: 1}
     - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
     - _RimColor: {r: 0.85, g: 0.9, b: 1, a: 1}
     - _ShadowTint: {r: 0.3, g: 0.35, b: 0.45, a: 1}
+    - _SoftParticleFadeParams: {r: 0, g: 0, b: 0, a: 0}
     - _SpecularColor: {r: 0.75, g: 0.76, b: 0.8, a: 1}
     - _TintColor: {r: 0.4393531, g: 0.3890229, b: 0.31204724, a: 1}
   m_BuildTextureStacks: []

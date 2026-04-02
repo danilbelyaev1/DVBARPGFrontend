@@ -19,6 +19,7 @@ struct Attributes
     float4 positionOS : POSITION;
     float3 normalOS : NORMAL;
     float2 texcoord : TEXCOORD0;
+    half4 color : COLOR;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -28,6 +29,7 @@ struct Varyings
     float3 positionWS : TEXCOORD1;
     half3 normalWS : TEXCOORD2;
     half fogCoord : TEXCOORD3;
+    half4 color : COLOR;
 #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
     float4 shadowCoord : TEXCOORD4;
 #endif
@@ -51,6 +53,7 @@ Varyings CelShadingLitPassVertex(Attributes input)
     output.positionWS = vertexInput.positionWS;
     output.positionCS = vertexInput.positionCS;
     output.normalWS = NormalizeNormalPerVertex(normalInput.normalWS);
+    output.color = input.color;
 
 #if defined(_FOG_FRAGMENT)
     output.fogCoord = half(vertexInput.positionVS.z);
@@ -81,6 +84,36 @@ void CelShadingLitPassFragment(
     half alpha = tex.a * _BaseColor.a;
     alpha = AlphaDiscard(alpha, _Cutoff);
     albedo = AlphaModulate(albedo, alpha);
+
+    // Legacy FX materials (converted from particle shaders) keep _LightingEnabled = 0 and rely on _TintColor.
+    // Use a lightweight transparent path to avoid gray quads and fog "squares".
+    bool isTransparent = IsSurfaceTypeTransparent(_Surface);
+    bool fxLikeBlend = (_ZWrite < 0.5h) && (_SrcBlend > 1.5h || _DstBlend > 0.5h);
+    bool useFxPath = (isTransparent || fxLikeBlend) && (_LightingEnabled < 0.5h || fxLikeBlend);
+    if (useFxPath)
+    {
+        half4 vtx = input.color;
+        half3 fxColor = tex.rgb * _BaseColor.rgb * _TintColor.rgb * vtx.rgb;
+        // A lot of legacy FX textures store mask in RGB, while alpha channel is flat 1.
+        // If alpha is almost constant, derive mask from luminance to avoid quad-shaped sprites.
+        half texAlpha = tex.a;
+        if (texAlpha > 0.98h)
+            texAlpha = saturate(dot(tex.rgb, half3(0.299h, 0.587h, 0.114h)));
+
+        half fxAlpha = saturate(texAlpha * _BaseColor.a * _TintColor.a * vtx.a);
+#if !defined(_ALPHATEST_ON)
+        clip(fxAlpha - 0.001h);
+#endif
+#ifdef _EMISSION
+        fxColor += SampleEmission(input.uv, _EmissionColor.rgb, TEXTURE2D_ARGS(_EmissionMap, sampler_EmissionMap));
+#endif
+        // For transparent FX we skip world fog in this shader to avoid dense rectangular fogging on billboards.
+        outColor = half4(fxColor, OutputAlpha(fxAlpha, true));
+#ifdef _WRITE_RENDERING_LAYERS
+        outRenderingLayers = EncodeMeshRenderingLayer();
+#endif
+        return;
+    }
 
 #ifdef LOD_FADE_CROSSFADE
     LODFadeCrossFade(input.positionCS);

@@ -41,6 +41,11 @@ CBUFFER_START(UnityPerMaterial)
     half4 _EmissionColor;
     half _Cutoff;
     half _Surface;
+    half _SrcBlend;
+    half _DstBlend;
+    half _ZWrite;
+    half _LightingEnabled;
+    half4 _TintColor;
     UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 

@@ -51,6 +51,8 @@ Shader "GameClient/CelShadingLit"
         _Blend("__blend", Float) = 0
         _Cull("__cull", Float) = 2
         [ToggleUI] _AlphaClip("__clip", Float) = 0
+        [HideInInspector] _LightingEnabled("Lighting Enabled", Float) = 1
+        [HideInInspector] _TintColor("Tint Color", Color) = (1, 1, 1, 1)
         [HideInInspector] _SrcBlend("__src", Float) = 1
         [HideInInspector] _DstBlend("__dst", Float) = 0
         [HideInInspector] _SrcBlendAlpha("__srcA", Float) = 1
