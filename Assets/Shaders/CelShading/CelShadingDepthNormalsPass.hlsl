@@ -58,7 +58,7 @@ void DepthNormalsFragment(
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
 #if defined(CEL_REQUIRES_UV_DEPTHNORMALS)
-    Alpha(SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, _BaseColor, _Cutoff);
+    Alpha(SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a, CelMaterialColorFactor(), _Cutoff);
 #endif
 
 #if defined(LOD_FADE_CROSSFADE)

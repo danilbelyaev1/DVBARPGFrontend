@@ -80,8 +80,9 @@ void CelShadingLitPassFragment(
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
     half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-    half3 albedo = tex.rgb * _BaseColor.rgb;
-    half alpha = tex.a * _BaseColor.a;
+    half4 matColor = CelMaterialColorFactor();
+    half3 albedo = tex.rgb * matColor.rgb;
+    half alpha = tex.a * matColor.a;
     alpha = AlphaDiscard(alpha, _Cutoff);
     albedo = AlphaModulate(albedo, alpha);
 
@@ -93,14 +94,14 @@ void CelShadingLitPassFragment(
     if (useFxPath)
     {
         half4 vtx = input.color;
-        half3 fxColor = tex.rgb * _BaseColor.rgb * _TintColor.rgb * vtx.rgb;
+        half3 fxColor = tex.rgb * matColor.rgb * _TintColor.rgb * vtx.rgb;
         // A lot of legacy FX textures store mask in RGB, while alpha channel is flat 1.
         // If alpha is almost constant, derive mask from luminance to avoid quad-shaped sprites.
         half texAlpha = tex.a;
         if (texAlpha > 0.98h)
             texAlpha = saturate(dot(tex.rgb, half3(0.299h, 0.587h, 0.114h)));
 
-        half fxAlpha = saturate(texAlpha * _BaseColor.a * _TintColor.a * vtx.a);
+        half fxAlpha = saturate(texAlpha * matColor.a * _TintColor.a * vtx.a);
 #if !defined(_ALPHATEST_ON)
         clip(fxAlpha - 0.001h);
 #endif

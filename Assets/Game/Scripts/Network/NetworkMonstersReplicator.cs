@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using DVBARPG.Net.Network;
 using UnityEngine;
-using DVBARPG.Game.World;
 using DVBARPG.Game.Animation;
 using DVBARPG.Tools;
 namespace DVBARPG.Game.Network
@@ -29,17 +28,9 @@ namespace DVBARPG.Game.Network
         [Tooltip("Fallback skinId, если для типа нет записи в каталоге.")]
         [SerializeField] private string fallbackSkinId = "";
 
-        [Header("Оптимизация высоты")]
-        [Tooltip("Как часто обновлять высоту по коллайдерам для монстров (сек). 0 = каждый кадр.")]
-        [SerializeField] private float heightSampleIntervalSec = 0.1f;
-        [Tooltip("Минимальное смещение по XZ для пересчёта высоты, даже если интервал ещё не прошёл.")]
-        [SerializeField] private float heightResampleDistance = 0.15f;
-
         private NetworkSessionRunner _net;
         private readonly Dictionary<Guid, Transform> _monsters = new();
         private readonly Dictionary<Guid, MonsterAnimationDriver> _animCache = new();
-        private readonly Dictionary<Guid, float> _lastHeightSampleTime = new();
-        private readonly Dictionary<Guid, Vector3> _lastHeightSamplePos = new();
         private readonly Dictionary<Guid, string> _appliedSkinByMonster = new();
         private readonly HashSet<Guid> _seen = new();
         private readonly List<Guid> _toDisable = new();
@@ -83,7 +74,8 @@ namespace DVBARPG.Game.Network
                     ApplySkinIfNeeded(m.Id, m.Type, tr);
 
                     var hasFrom = TryGetMonsterPos(from, m.Id, out var fromPos);
-                    var toPos = new Vector3(m.X, 0f, m.Y);
+                    var toY = m.Z ?? 0f;
+                    var toPos = new Vector3(m.X, toY, m.Y);
 
                     if (renderTime <= to.ServerTimeMs)
                     {
@@ -95,7 +87,6 @@ namespace DVBARPG.Game.Network
                         }
 
                         var pos = hasFrom ? Vector3.Lerp(fromPos, toPos, t) : toPos;
-                        pos.y = SampleHeightThrottled(m.Id, pos);
                         tr.position = ApplySmoothing(tr.position, pos);
                     }
                     else
@@ -103,7 +94,6 @@ namespace DVBARPG.Game.Network
                         var extraMs = Mathf.Min((float)(renderTime - to.ServerTimeMs), maxExtrapolationMs);
                         var vel = EstimateMonsterVelocity(m.Id);
                         var pos = vel.sqrMagnitude > 0.0001f ? toPos + vel * (extraMs / 1000f) : toPos;
-                        pos.y = SampleHeightThrottled(m.Id, pos);
                         tr.position = ApplySmoothing(tr.position, pos);
                     }
                     if (!tr.gameObject.activeSelf) tr.gameObject.SetActive(true);
@@ -134,8 +124,6 @@ namespace DVBARPG.Game.Network
                     Registry.Remove(id);
                     _monsters.Remove(id);
                     _animCache.Remove(id);
-                    _lastHeightSampleTime.Remove(id);
-                    _lastHeightSamplePos.Remove(id);
                     _appliedSkinByMonster.Remove(id);
                     SkinOverrides.Remove(id);
                 }
@@ -199,7 +187,9 @@ namespace DVBARPG.Game.Network
             {
                 if (snap.Monsters[i].Id == id)
                 {
-                    pos = new Vector3(snap.Monsters[i].X, 0f, snap.Monsters[i].Y);
+                    var m = snap.Monsters[i];
+                    var y = m.Z ?? 0f;
+                    pos = new Vector3(m.X, y, m.Y);
                     return true;
                 }
             }
@@ -218,31 +208,6 @@ namespace DVBARPG.Game.Network
             if (dtMs <= 0) return Vector3.zero;
 
             return (lastPos - prevPos) / (dtMs / 1000f);
-        }
-
-        private float SampleHeightThrottled(Guid id, Vector3 worldPos)
-        {
-            if (heightSampleIntervalSec <= 0f)
-                return UnifiedHeightSampler.SampleHeight(worldPos);
-
-            var now = Time.unscaledTime;
-            if (_lastHeightSampleTime.TryGetValue(id, out var lastT) &&
-                _lastHeightSamplePos.TryGetValue(id, out var lastPos))
-            {
-                var dt = now - lastT;
-                var dx = worldPos.x - lastPos.x;
-                var dz = worldPos.z - lastPos.z;
-                var movedSq = dx * dx + dz * dz;
-                if (dt < heightSampleIntervalSec && movedSq < heightResampleDistance * heightResampleDistance)
-                {
-                    return lastPos.y;
-                }
-            }
-
-            var y = UnifiedHeightSampler.SampleHeight(worldPos);
-            _lastHeightSampleTime[id] = now;
-            _lastHeightSamplePos[id] = new Vector3(worldPos.x, y, worldPos.z);
-            return y;
         }
 
         private Vector3 ApplySmoothing(Vector3 current, Vector3 target)

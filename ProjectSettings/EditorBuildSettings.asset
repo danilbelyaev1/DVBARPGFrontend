@@ -9,20 +9,35 @@ EditorBuildSettings:
     path: Assets/Scenes/Bootstrap.unity
     guid: 27f4bbafba0949d992c547a5fe4e6771
   - enabled: 1
-    path: Assets/Scenes/Login.unity
+    path: Assets/Scenes/UI/Login.unity
     guid: 84b172d658ad4c1ca34b823c4ca5daa2
   - enabled: 1
-    path: Assets/Scenes/CharacterSelect.unity
+    path: Assets/Scenes/UI/CharacterSelect.unity
     guid: ba7cd7a072c14998b21596e1ebfa8e8a
   - enabled: 1
-    path: Assets/Scenes/Run.unity
+    path: Assets/Scenes/UI/RunLoading.unity
+    guid: d3591ef95a0ebae46aba53a9ef739a81
+  - enabled: 1
+    path: Assets/Scenes/RunDanila.unity
     guid: f6660613d576ed444b12742d04a1fc15
+  - enabled: 1
+    path: Assets/Scenes/Act_1/act1_hub.unity
+    guid: 1bafc71dc8f24b546ac73b2b276d3e14
+  - enabled: 1
+    path: Assets/Scenes/Run.unity
+    guid: 5178237de85930442ba56a2d786d91f9
   - enabled: 1
     path: Assets/Scenes/UI/Inventory.unity
     guid: c45681f7d912a0d408968663166c5f16
   - enabled: 1
-    path: Assets/Scenes/CharacterCreate.unity
+    path: Assets/Scenes/UI/CharacterCreate.unity
     guid: ee7436c23328b9d4db470bb66b6037e7
+  - enabled: 1
+    path: Assets/Scenes/UI/NpcShop.unity
+    guid: b2c97cabe3777884796db6290f6d9bac
+  - enabled: 1
+    path: Assets/Scenes/UI/QuestJournal.unity
+    guid: fa6c59b40fe8b8f4b8628979ccf28eac
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

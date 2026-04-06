@@ -1,7 +1,6 @@
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Local;
 using DVBARPG.Net.Mock;
-using DVBARPG.UI.LoadingOverlay;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -50,6 +49,11 @@ namespace DVBARPG.Core
         {
             Services.Register<IAuthService>(new MockAuthService());
             Services.Register<IProfileService>(new MockProfileService());
+            Services.Register(new SessionState());
+            Services.Register(new CampaignState());
+            Services.Register(new ShopState());
+            Services.Register(new FlowRouter());
+            Services.Register<IErrorMapper>(new ErrorMapper());
             var go = new GameObject("[NetworkSession]");
             DontDestroyOnLoad(go);
             var net = go.AddComponent<DVBARPG.Net.Network.NetworkSessionRunner>();
@@ -58,6 +62,9 @@ namespace DVBARPG.Core
             DontDestroyOnLoad(metaGo);
             var runtimeMeta = metaGo.AddComponent<DVBARPG.Net.Network.RuntimeMetaService>();
             Services.Register<IRuntimeMetaService>(runtimeMeta);
+            var mvpApiGo = new GameObject("[RuntimeMvpApi]");
+            DontDestroyOnLoad(mvpApiGo);
+            Services.Register<IRuntimeMvpService>(mvpApiGo.AddComponent<DVBARPG.Net.Network.RuntimeMvpService>());
             var invGo = new GameObject("[BackendInventory]");
             DontDestroyOnLoad(invGo);
             var backendInv = invGo.AddComponent<DVBARPG.Net.Network.BackendInventoryService>();
@@ -70,9 +77,6 @@ namespace DVBARPG.Core
             Services.Register<ICurrencyService>(currencyGo.AddComponent<DVBARPG.Net.Network.BackendCurrencyService>());
             Services.Register<IStatService>(new LocalStatService());
             Services.Register<IItemRollService>(new LocalItemRollService());
-            var overlayGo = new GameObject("[LoadingOverlay]");
-            DontDestroyOnLoad(overlayGo);
-            Services.Register<ILoadingOverlayService>(overlayGo.AddComponent<LoadingOverlayService>());
         }
     }
 }

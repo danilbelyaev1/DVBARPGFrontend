@@ -30,6 +30,12 @@ namespace DVBARPG.UI.Login
 
         private void OnPlayClicked()
         {
+            var router = GameRoot.Instance?.Services?.Get<FlowRouter>();
+            if (router != null)
+            {
+                router.GoTo(FlowRoute.CharacterSelect);
+                return;
+            }
             SceneManager.LoadScene("CharacterSelect");
         }
     }

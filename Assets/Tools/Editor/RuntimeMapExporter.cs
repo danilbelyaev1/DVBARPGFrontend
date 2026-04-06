@@ -2,7 +2,9 @@ namespace Tools
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
+    using System.Text.RegularExpressions;
     using UnityEditor;
     using UnityEngine;
     using UnityEngine.AI;
@@ -27,6 +29,7 @@ namespace Tools
         private float _playerRadius = 0.35f;
         private float _playerSpawnX = 6.16f;
         private float _playerSpawnY = 0f;
+        private float _playerSpawnZ = 0f;
         private bool _playerSpawnFromScene = true;
 
         // --- Теги врагов ---
@@ -135,7 +138,11 @@ namespace Tools
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("", GUILayout.Width(LabelWidth));
                 _playerSpawnX = EditorGUILayout.FloatField("X (точное)", _playerSpawnX);
-                _playerSpawnY = EditorGUILayout.FloatField("Y (точное)", _playerSpawnY);
+                _playerSpawnY = EditorGUILayout.FloatField("Z гориз. (точное)", _playerSpawnY);
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Высота Y (мир)", GUILayout.Width(LabelWidth));
+                _playerSpawnZ = EditorGUILayout.FloatField(_playerSpawnZ);
                 EditorGUILayout.EndHorizontal();
             }
         }
@@ -278,7 +285,7 @@ namespace Tools
             for (int i = 0; i < tri.vertices.Length; i++)
             {
                 var v = tri.vertices[i];
-                vertices.Add(new NavMeshVertexExport { x = v.x, y = v.z });
+                vertices.Add(new NavMeshVertexExport { x = v.x, y = v.z, z = v.y });
             }
             var triangles = tri.indices != null ? new List<int>(tri.indices) : new List<int>();
             var neighbours = BuildNavMeshNeighbours(vertices.Count, triangles);
@@ -419,6 +426,7 @@ namespace Tools
                 {
                     _playerSpawnX = ps.x;
                     _playerSpawnY = ps.y;
+                    _playerSpawnZ = ps.z;
                 }
             }
             if (_enemySpawnsFromScene)
@@ -429,7 +437,7 @@ namespace Tools
                     _enemySpawns = spawns.ConvertAll(v => new EnemySpawnEntry { x = v.x, y = v.y, max_per_point = 5 });
                 }
             }
-            Debug.Log($"Спавн игрока: {_playerSpawnX:F2}, {_playerSpawnY:F2}. Точек врагов: {_enemySpawns.Count}");
+            Debug.Log($"Спавн игрока (карта): {_playerSpawnX:F2}, {_playerSpawnY:F2}, z={_playerSpawnZ:F2}. Точек врагов: {_enemySpawns.Count}");
         }
 
         private void SaveMapToServer()
@@ -442,7 +450,7 @@ namespace Tools
             }
             if (playerSpawn == null)
             {
-                playerSpawn = new MapPoint { x = _playerSpawnX, y = _playerSpawnY };
+                playerSpawn = new MapPoint { x = _playerSpawnX, y = _playerSpawnY, z = _playerSpawnZ };
             }
 
             if (!_tagsLoaded && _enemyTags.Count == 0)
@@ -478,6 +486,8 @@ namespace Tools
             };
 
             var json = JsonUtility.ToJson(payload);
+            // JsonUtility omits float fields equal to 0 — Laravel then gets playerSpawn {} / missing keys → null in DB.
+            json = EnsurePlayerSpawnInJson(json, playerSpawn);
             if (_navmeshExport != null && _navmeshExport.vertices != null && _navmeshExport.vertices.Length > 0)
             {
                 var navmeshStr = JsonUtility.ToJson(_navmeshExport);
@@ -530,44 +540,207 @@ namespace Tools
             return string.IsNullOrWhiteSpace(scene.name) ? "default" : scene.name;
         }
 
+        /// <summary>
+        /// JsonUtility.ToJson skips default (0) floats, so nested playerSpawn can become {} — replace with explicit x,y,z.
+        /// </summary>
+        private static string EnsurePlayerSpawnInJson(string json, MapPoint spawn)
+        {
+            if (string.IsNullOrEmpty(json) || spawn == null) return json;
+            var inv = CultureInfo.InvariantCulture;
+            var block = string.Format(inv, "\"playerSpawn\":{{\"x\":{0},\"y\":{1},\"z\":{2}}}", spawn.x, spawn.y, spawn.z);
+            const string pattern = "\"playerSpawn\"\\s*:\\s*(\\{[^}]*\\}|null)";
+            if (Regex.IsMatch(json, pattern))
+                return Regex.Replace(json, pattern, block);
+
+            // Rare: field missing entirely — insert after playerRadius.
+            var m = Regex.Match(json, "\"playerRadius\"\\s*:\\s*([0-9]+\\.?[0-9]*(?:[eE][+-]?[0-9]+)?)");
+            if (m.Success)
+            {
+                var insertAt = m.Index + m.Length;
+                return json.Insert(insertAt, "," + block);
+            }
+
+            return json;
+        }
+
         private MapPoint CollectPlayerSpawn()
         {
-            var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            var roots = scene.GetRootGameObjects();
+
+            // Transform.position — всегда мировые координаты, глубина иерархии не важна.
+            // Раньше слой шёл первым: на одном слое мог попасться «чужой» объект раньше маркера PlayerSpawn.
             foreach (var r in roots)
             {
                 foreach (var t in r.GetComponentsInChildren<Transform>(true))
                 {
-                    if (!IsLayerMatch(t.gameObject, _playerSpawnLayerName, _usePlayerSpawnLayer))
-                        continue;
-                    var pos = new Vector2(t.position.x, t.position.z);
-                    return new MapPoint { x = pos.x, y = pos.y };
+                    if (IsPreferredPlayerSpawnName(t.gameObject))
+                        return LogAndMapPlayerSpawn(t);
                 }
             }
+
+            foreach (var r in roots)
+            {
+                foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                {
+                    if (SafeCompareTag(t.gameObject, "PlayerSpawn"))
+                        return LogAndMapPlayerSpawn(t);
+                }
+            }
+
+            if (_usePlayerSpawnLayer)
+            {
+                var layer = LayerMask.NameToLayer(_playerSpawnLayerName);
+                if (layer < 0)
+                {
+                    Debug.LogWarning(
+                        $"[RuntimeMapExporter] Слой «{_playerSpawnLayerName}» не найден (Edit → Project Settings → Tags and Layers). " +
+                        "Создайте слой и назначьте его маркеру, либо отключите «Слой спавна игрока» и используйте объект с именем PlayerSpawn.");
+                }
+                else
+                {
+                    foreach (var r in roots)
+                    {
+                        foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                        {
+                            if (t.gameObject.layer != layer) continue;
+                            return LogAndMapPlayerSpawn(t);
+                        }
+                    }
+                }
+            }
+
+            foreach (var r in roots)
+            {
+                foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                {
+                    if (IsLoosePlayerSpawnName(t.gameObject))
+                        return LogAndMapPlayerSpawn(t);
+                }
+            }
+
+            Debug.LogWarning("[RuntimeMapExporter] Маркер спавна игрока не найден: имя/тег PlayerSpawn, затем слой «" + _playerSpawnLayerName + "».");
             return null;
+        }
+
+        private static MapPoint LogAndMapPlayerSpawn(Transform t)
+        {
+            var world = t.position;
+            var map = WorldXZToMapPoint(world);
+            Debug.Log(
+                "[RuntimeMapExporter] Спавн игрока: объект «" + t.name + "» (" + GetTransformHierarchyPath(t) + "), " +
+                "мир Unity (x,y,z)=(" + world.x.ToString("F2", CultureInfo.InvariantCulture) + "," +
+                world.y.ToString("F2", CultureInfo.InvariantCulture) + "," +
+                world.z.ToString("F2", CultureInfo.InvariantCulture) + ") → на сервер x=" +
+                map.x.ToString("F2", CultureInfo.InvariantCulture) + ", y(гориз.)=" +
+                map.y.ToString("F2", CultureInfo.InvariantCulture) + ", z(высота)=" +
+                map.z.ToString("F2", CultureInfo.InvariantCulture) + ")");
+            return map;
+        }
+
+        private static string GetTransformHierarchyPath(Transform t)
+        {
+            var s = t.name ?? "";
+            while (t.parent != null)
+            {
+                t = t.parent;
+                s = (t.name ?? "") + "/" + s;
+            }
+
+            return s;
+        }
+
+        /// <summary>Имя «PlayerSpawn» или дубликат Unity «PlayerSpawn (1)».</summary>
+        private static bool IsPreferredPlayerSpawnName(GameObject go)
+        {
+            var n = go.name ?? "";
+            if (string.Equals(n, "PlayerSpawn", StringComparison.OrdinalIgnoreCase)) return true;
+            return n.StartsWith("PlayerSpawn", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Любое вхождение подстроки (после точного имени и слоя).</summary>
+        private static bool IsLoosePlayerSpawnName(GameObject go)
+        {
+            var n = go.name ?? "";
+            return n.IndexOf("PlayerSpawn", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static MapPoint WorldXZToMapPoint(Vector3 world)
+        {
+            var pos = new Vector2(world.x, world.z);
+            return new MapPoint { x = pos.x, y = pos.y, z = world.y };
+        }
+
+        private static bool SafeCompareTag(GameObject go, string tag)
+        {
+            try
+            {
+                return go.CompareTag(tag);
+            }
+            catch (UnityException)
+            {
+                return false;
+            }
         }
 
         private List<Vector2> CollectEnemySpawns()
         {
             var result = new List<Vector2>();
             var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-            foreach (var r in roots)
+
+            if (_useEnemySpawnLayer)
             {
-                foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                var layer = LayerMask.NameToLayer(_enemySpawnLayerName);
+                if (layer < 0)
                 {
-                    if (!IsLayerMatch(t.gameObject, _enemySpawnLayerName, _useEnemySpawnLayer))
-                        continue;
-                    result.Add(new Vector2(t.position.x, t.position.z));
+                    Debug.LogWarning(
+                        $"[RuntimeMapExporter] Слой «{_enemySpawnLayerName}» не найден. Точки врагов по слою не собраны; добавьте слой или отключите фильтр.");
+                }
+                else
+                {
+                    foreach (var r in roots)
+                    {
+                        foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                        {
+                            if (t.gameObject.layer != layer) continue;
+                            result.Add(new Vector2(t.position.x, t.position.z));
+                        }
+                    }
                 }
             }
+
+            if (result.Count == 0)
+            {
+                foreach (var r in roots)
+                {
+                    foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (IsEnemySpawnByName(t.gameObject))
+                            result.Add(new Vector2(t.position.x, t.position.z));
+                    }
+                }
+            }
+
+            if (result.Count == 0)
+            {
+                foreach (var r in roots)
+                {
+                    foreach (var t in r.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (SafeCompareTag(t.gameObject, "EnemySpawn"))
+                            result.Add(new Vector2(t.position.x, t.position.z));
+                    }
+                }
+            }
+
             return result;
         }
 
-        private static bool IsLayerMatch(GameObject go, string layerName, bool useFilter)
+        private static bool IsEnemySpawnByName(GameObject go)
         {
-            if (!useFilter) return true;
-            var layer = LayerMask.NameToLayer(layerName);
-            if (layer < 0) return true;
-            return go.layer == layer;
+            var n = go.name ?? "";
+            return string.Equals(n, "EnemySpawn", StringComparison.OrdinalIgnoreCase)
+                   || n.StartsWith("EnemySpawn", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool LoadEnemyTagsFromBackend()
@@ -650,6 +823,7 @@ namespace Tools
         {
             public float x;
             public float y;
+            public float z;
         }
 
         [Serializable]
@@ -672,6 +846,7 @@ namespace Tools
         {
             public float x;
             public float y;
+            public float z;
         }
     }
 }

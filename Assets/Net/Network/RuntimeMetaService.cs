@@ -26,58 +26,43 @@ namespace DVBARPG.Net.Network
 
         public void FetchCurrentSeason(AuthSession session, Action<RuntimeSeasonSnapshot> onDone)
         {
-            StartCoroutine(WithOverlay(FetchCurrentSeasonRoutine(session, onDone)));
+            StartCoroutine(FetchCurrentSeasonRoutine(session, onDone));
         }
 
         public void FetchCharacters(AuthSession session, Action<RuntimeCharactersSnapshot> onDone)
         {
-            StartCoroutine(WithOverlay(FetchCharactersRoutine(session, onDone)));
+            StartCoroutine(FetchCharactersRoutine(session, onDone));
         }
 
         public void ValidateAuth(AuthSession session, string characterId, string seasonId, Action<RuntimeAuthSnapshot> onDone)
         {
-            StartCoroutine(WithOverlay(ValidateAuthRoutine(session, characterId, seasonId, onDone)));
+            StartCoroutine(ValidateAuthRoutine(session, characterId, seasonId, onDone));
         }
 
         public void FetchProfile(AuthSession session, string characterId, string seasonId, Action<RuntimeProfileSnapshot> onDone)
         {
-            StartCoroutine(WithOverlay(FetchProfileRoutine(session, characterId, seasonId, onDone)));
+            StartCoroutine(FetchProfileRoutine(session, characterId, seasonId, onDone));
         }
 
         public void SetLoadout(AuthSession session, string characterId, string seasonId, RuntimeLoadoutPayload loadout, Action<SetLoadoutResult> onDone)
         {
-            StartCoroutine(WithOverlay(SetLoadoutRoutine(session, characterId, seasonId, loadout, onDone)));
+            StartCoroutine(SetLoadoutRoutine(session, characterId, seasonId, loadout, onDone));
         }
 
         public void AllocateTalent(AuthSession session, string characterId, string seasonId, string talentCode, string requestId, Action<AllocateTalentResult> onDone)
         {
-            StartCoroutine(WithOverlay(AllocateTalentRoutine(session, characterId, seasonId, talentCode, requestId, onDone)));
+            StartCoroutine(AllocateTalentRoutine(session, characterId, seasonId, talentCode, requestId, onDone));
         }
 
         public void CreateCharacter(AuthSession session, string name, string classId, string gender, object appearance, Action<CreateCharacterResult> onDone)
         {
             var appearanceJson = appearance == null ? null : (appearance is JObject jo ? jo : JObject.FromObject(appearance));
-            StartCoroutine(WithOverlay(CreateCharacterRoutine(session, name, classId, gender, appearanceJson, onDone)));
+            StartCoroutine(CreateCharacterRoutine(session, name, classId, gender, appearanceJson, onDone));
         }
 
         public void DeleteCharacter(AuthSession session, string characterId, Action<DeleteCharacterResult> onDone)
         {
-            StartCoroutine(WithOverlay(DeleteCharacterRoutine(session, characterId, onDone)));
-        }
-
-        private static IEnumerator WithOverlay(IEnumerator inner)
-        {
-            var overlay = Core.GameRoot.Instance?.Services?.Get<ILoadingOverlayService>();
-            overlay?.BeginRequest();
-            try
-            {
-                while (inner.MoveNext())
-                    yield return inner.Current;
-            }
-            finally
-            {
-                overlay?.EndRequest();
-            }
+            StartCoroutine(DeleteCharacterRoutine(session, characterId, onDone));
         }
 
         private IEnumerator FetchCurrentSeasonRoutine(AuthSession session, Action<RuntimeSeasonSnapshot> onDone)

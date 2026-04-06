@@ -62,8 +62,9 @@ GBufferFragOutput CelShadingLitGBufferFragment(GBufferVaryings input)
 
     half2 uv = input.uv;
     half4 texColor = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
-    half3 color = texColor.rgb * _BaseColor.rgb;
-    half alpha = texColor.a * _BaseColor.a;
+    half4 matColor = CelMaterialColorFactor();
+    half3 color = texColor.rgb * matColor.rgb;
+    half alpha = texColor.a * matColor.a;
     alpha = AlphaDiscard(alpha, _Cutoff);
     color = AlphaModulate(color, alpha);
 

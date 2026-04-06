@@ -3,6 +3,9 @@ using UnityEngine;
 
 namespace DVBARPG.Game.World
 {
+    /// <summary>
+    /// Рейкаст к коллайдерам/террейну для офлайн-инструментов и сцен без серверной высоты (например порталы).
+    /// </summary>
     public sealed class UnifiedHeightSampler : MonoBehaviour
     {
         public static UnifiedHeightSampler Current { get; private set; }

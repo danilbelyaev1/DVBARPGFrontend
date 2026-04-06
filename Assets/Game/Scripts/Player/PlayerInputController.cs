@@ -83,6 +83,18 @@ namespace DVBARPG.Game.Player
 
         private bool CanMove()
         {
+            var sessionState = GameRoot.Instance?.Services?.Get<SessionState>();
+            if (sessionState != null && sessionState.HubBlocksWorldInput)
+            {
+                if (_wasMoving)
+                {
+                    _session?.Send(new DVBARPG.Net.Commands.CmdStop());
+                    _wasMoving = false;
+                }
+
+                return false;
+            }
+
             // Не двигать персонажа, когда открыт инвентарь — клики должны идти в UI.
             if (InventorySceneHelper.IsLoaded)
             {

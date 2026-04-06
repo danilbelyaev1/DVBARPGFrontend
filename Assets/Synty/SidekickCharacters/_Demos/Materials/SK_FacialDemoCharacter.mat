@@ -8,12 +8,11 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: SK_FacialDemoCharacter
-  m_Shader: {fileID: -6465566751694194690, guid: db628544640279b41a4a7aa5d75c0322, type: 3}
+  m_Shader: {fileID: 4800000, guid: ce15e5a1f2b84d9e8c7f6a5b4c3d2e10, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords:
-  - _EMISSION
+  m_InvalidKeywords: []
   m_LightmapFlags: 2
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -25,6 +24,10 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 21c43e6b1238e6441bfb742288ef2b1e, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _BloodMaskTexture:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -127,38 +130,71 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AdditionalLightsStrength: 0.25
+    - _AlphaClip: 0
     - _AlphaCutoff: 0.5
+    - _AlphaToMask: 0
     - _BUILTIN_QueueControl: 0
     - _BUILTIN_QueueOffset: 0
+    - _Blend: 0
     - _BloodAmount: 0.5
     - _BumpScale: 1
+    - _CelHighlightStart: 0.42
+    - _CelMidMul: 0.58
+    - _Cull: 2
     - _Cutoff: 0.5
     - _CutsAmount: 0
     - _DarkAmount: 0.5
     - _DetailNormalMapScale: 1
+    - _DirectLightScale: 0.72
     - _DirtAmount: 0.306
     - _DstBlend: 0
+    - _DstBlendAlpha: 0
     - _EnvironmentReflections: 1
     - _EyelinerAmount: 0
     - _FeminieAmount: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _HighlightStep: 0.62
+    - _InkEdgeStrength: 0.18
+    - _InkEdgeWidth: 0.02
+    - _LightBandLower: -0.08
+    - _LightBandUpper: 0.09
+    - _LightingEnabled: 1
+    - _MaxDiffuseIrradiance: 1
+    - _MaxOutputRgb: 1.1
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
+    - _OutlineWidth: 1.6
     - _Parallax: 0.02
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ReceiveShadows: 1
+    - _RimAmount: 0.716
+    - _RimEdgeWidth: 0.01
+    - _RimStrength: 0.28
+    - _RimThreshold: 0.1
+    - _ShadowStep: 0.22
     - _SkinColorAmount: 0
     - _SmoothnessTextureChannel: 0
+    - _SpecularAlbedoMix: 0.55
+    - _SpecularBrightAlbedoReduce: 0.45
+    - _SpecularEdgeLower: 0.0005
+    - _SpecularEdgeUpper: 0.1
     - _SpecularHighlights: 1
+    - _SpecularIntensity: 0.85
+    - _SpecularLightMix: 0.35
     - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _Surface: 0
     - _UVSec: 0
     - _ZWrite: 1
     - __dirty: 0
     m_Colors:
+    - _AmbientColor: {r: 0.28, g: 0.3, b: 0.36, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _BloodColor: {r: 0.43396226, g: 0.14737415, b: 0.14192465, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _CutsColor: {r: 0.33333328, g: 0.33333328, b: 0.33333328, a: 0}
@@ -166,7 +202,13 @@ Material:
     - _DirtColor: {r: 0.4716981, g: 0.35202244, b: 0.23881568, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _Grey: {r: 0.59748423, g: 0.59748423, b: 0.59748423, a: 0}
+    - _InkColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RimColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+    - _ShadowTint: {r: 0.3, g: 0.35, b: 0.45, a: 1}
     - _SkinColor: {r: 0, g: 0, b: 0, a: 0}
+    - _SpecularColor: {r: 0.75, g: 0.76, b: 0.8, a: 1}
+    - _TintColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &2802132362823649118

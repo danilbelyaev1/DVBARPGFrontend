@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using DVBARPG.Net.Network;
-using DVBARPG.Game.World;
 using DVBARPG.Game.Animation;
 using UnityEngine;
 using DVBARPG.Tools;
@@ -23,7 +22,7 @@ namespace DVBARPG.Game.Network
         [SerializeField] private bool scaleByRadius = true;
         [Tooltip("Базовый диаметр префаба в мировых единицах. Если 0 — вычислим автоматически по Renderer.bounds.")]
         [SerializeField] private float prefabBaseDiameter = 0f;
-        [Tooltip("Прижимать снаряды к земле через HeightSampler.")]
+        [Tooltip("Прижимать снаряды к земле локальным рейкастом (высота сервера в снапшоте — поле z).")]
         [SerializeField] private bool followGround = false;
         [Tooltip("Слои, по которым ищем землю для снарядов.")]
         [SerializeField] private LayerMask groundMask = ~0;
@@ -69,7 +68,8 @@ namespace DVBARPG.Game.Network
                     _projectileBaseDiameters[p.Id] = ComputePrefabBaseDiameter(tr);
                 }
                 var hasFrom = TryGetProjectilePos(from, p.Id, out var fromPos);
-                var toPos = new Vector3(p.X, 0f, p.Y);
+                var toPy = p.Z ?? 0f;
+                var toPos = new Vector3(p.X, toPy, p.Y);
 
                 Vector3 pos;
                 if (renderTime <= to.ServerTimeMs)
@@ -90,7 +90,12 @@ namespace DVBARPG.Game.Network
                     pos = vel.sqrMagnitude > 0.0001f ? toPos + vel * (extraMs / 1000f) : toPos;
                 }
 
-                pos.y = followGround ? SampleProjectileHeight(pos, tr) : heightOffset;
+                if (followGround)
+                    pos.y = SampleProjectileHeight(pos, tr);
+                else if (p.Z.HasValue)
+                    pos.y = p.Z.Value + heightOffset;
+                else
+                    pos.y = heightOffset;
                 tr.position = pos;
 
                 if (scaleByRadius)
@@ -133,7 +138,9 @@ namespace DVBARPG.Game.Network
             {
                 if (snap.Projectiles[i].Id == id)
                 {
-                    pos = new Vector3(snap.Projectiles[i].X, 0f, snap.Projectiles[i].Y);
+                    var pr = snap.Projectiles[i];
+                    var py = pr.Z ?? 0f;
+                    pos = new Vector3(pr.X, py, pr.Y);
                     return true;
                 }
             }

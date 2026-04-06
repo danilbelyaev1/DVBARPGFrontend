@@ -23,8 +23,8 @@ namespace DVBARPG.UI.Run
         [SerializeField] private Button backToMenuButton;
 
         [Header("Настройки")]
-        [Tooltip("Имя сцены для перехода в меню.")]
-        [SerializeField] private string menuSceneName = "CharacterSelect";
+        [Tooltip("Если задано — грузится эта сцена; иначе — хаб текущего акта через FlowRouter (actN_hub).")]
+        [SerializeField] private string menuSceneName = "";
 
         private void Awake()
         {
@@ -73,13 +73,43 @@ namespace DVBARPG.UI.Run
 
         private void OnBackToMenu()
         {
-            var session = GameRoot.Instance?.Services?.Get<ISessionService>();
-            if (session != null && session.IsConnected)
+            var netSession = GameRoot.Instance?.Services?.Get<ISessionService>();
+            if (netSession != null)
             {
-                session.Disconnect();
+                netSession.Disconnect();
             }
             RunResultState.Reset();
-            SceneManager.LoadScene(string.IsNullOrEmpty(menuSceneName) ? "CharacterSelect" : menuSceneName);
+            var services = GameRoot.Instance?.Services;
+            if (!string.IsNullOrWhiteSpace(menuSceneName))
+            {
+                SceneManager.LoadScene(menuSceneName);
+                return;
+            }
+
+            var state = services?.Get<SessionState>();
+            if (state != null)
+            {
+                if (!ActHubResolver.TryParseActFromMapCode(state.MapId, out var act))
+                    act = state.ActiveActNumber > 0 ? state.ActiveActNumber : 1;
+                state.MapId = ActHubResolver.GetHubMapCode(act);
+                state.ActiveActNumber = act;
+                state.LastApiError = null;
+            }
+
+            var router = services?.Get<FlowRouter>();
+            if (router != null)
+            {
+                if (state != null)
+                {
+                    state.RunLoadingIntent = RunLoadingIntent.LoadHubOnly;
+                }
+
+                router.GoTo(FlowRoute.RunLoading);
+                return;
+            }
+
+            var fallbackAct = state != null && state.ActiveActNumber > 0 ? state.ActiveActNumber : 1;
+            SceneManager.LoadScene(ActHubResolver.GetHubSceneName(fallbackAct));
         }
     }
 }

@@ -90,7 +90,7 @@ Material:
     - _DistortionEnabled: 0
     - _DistortionStrength: 1
     - _DistortionStrengthScaled: 0.1
-    - _DstBlend: 1
+    - _DstBlend: 10
     - _DstBlendAlpha: 10
     - _FlipbookBlending: 0
     - _FlipbookMode: 0
@@ -138,7 +138,7 @@ Material:
     - _BaseColor: {r: 1, g: 0.4925589, b: 0.14619368, a: 1}
     - _BaseColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
     - _CameraFadeParams: {r: 0, g: Infinity, b: 0, a: 0}
-    - _Color: {r: 1, g: 0.4925589, b: 0.14619368, a: 1}
+    - _Color: {r: 1, g: 0.49255884, b: 0.14619365, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _InkColor: {r: 0, g: 0, b: 0, a: 1}
     - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}

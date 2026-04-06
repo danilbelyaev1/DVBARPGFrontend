@@ -4,7 +4,6 @@ using System.Linq;
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Commands;
 using DVBARPG.Net.Network;
-using DVBARPG.Game.World;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -175,7 +174,7 @@ namespace DVBARPG.Game.Network
                     _drops[d.Index] = tr;
                 }
 
-                float y = SampleHeight(d.X, d.Y);
+                float y = d.Z ?? 0f;
                 tr.position = new Vector3(d.X, y + dropHeightOffset, d.Y);
 
                 var marker = tr.GetComponent<LootDropMarker>();
@@ -191,9 +190,5 @@ namespace DVBARPG.Game.Network
             return $"Предмет [{d.Rarity}] Lv.{d.ItemLevel}";
         }
 
-        private float SampleHeight(float x, float z)
-        {
-            return UnifiedHeightSampler.SampleHeight(new Vector3(x, 0f, z));
-        }
     }
 }

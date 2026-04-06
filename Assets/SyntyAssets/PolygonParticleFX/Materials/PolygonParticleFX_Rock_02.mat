@@ -137,7 +137,7 @@ Material:
     - _BaseColor: {r: 0.13970578, g: 0.11391833, b: 0.06779836, a: 1}
     - _BaseColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
     - _CameraFadeParams: {r: 0, g: Infinity, b: 0, a: 0}
-    - _Color: {r: 0.13970578, g: 0.11391833, b: 0.06779836, a: 1}
+    - _Color: {r: 0.13970575, g: 0.1139183, b: 0.06779833, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _InkColor: {r: 0, g: 0, b: 0, a: 1}
     - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}

@@ -141,6 +141,8 @@ namespace DVBARPG.Net.Network
         public int Index { get; set; }
         public float X { get; set; }
         public float Y { get; set; }
+        /// <summary>Unity world Y from server; null if legacy snapshot.</summary>
+        public float? Z { get; set; }
         public string Type { get; set; } = "";
         public int GoldAmount { get; set; }
         public int ItemDefinitionId { get; set; }
@@ -166,6 +168,8 @@ namespace DVBARPG.Net.Network
         public System.Guid Id { get; set; }
         public float X { get; set; }
         public float Y { get; set; }
+        /// <summary>Unity world Y from server; null if legacy snapshot — use ground sampler.</summary>
+        public float? Z { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
         public bool AttackEnabled { get; set; }
@@ -183,6 +187,7 @@ namespace DVBARPG.Net.Network
         public string State { get; set; } = "";
         public float X { get; set; }
         public float Y { get; set; }
+        public float? Z { get; set; }
         public int Hp { get; set; }
         public int MaxHp { get; set; }
     }
@@ -194,6 +199,7 @@ namespace DVBARPG.Net.Network
         public long SpawnTimeMs { get; set; }
         public float X { get; set; }
         public float Y { get; set; }
+        public float? Z { get; set; }
         public float Radius { get; set; }
     }
 

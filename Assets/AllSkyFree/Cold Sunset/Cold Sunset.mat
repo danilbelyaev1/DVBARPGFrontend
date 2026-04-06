@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Cold Sunset
+  m_Shader: {fileID: 4800000, guid: ce15e5a1f2b84d9e8c7f6a5b4c3d2e10, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 1000
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BackTex:
+        m_Texture: {fileID: 2800000, guid: 0c96697ef1fc74d8d90d3e2f7345366d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DownTex:
+        m_Texture: {fileID: 2800000, guid: 6458ffa0dcd6b4ea5b30ac5085d8c68a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FrontTex:
+        m_Texture: {fileID: 2800000, guid: 6774108631deb4532b5f7df6e4f779a7, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _LeftTex:
+        m_Texture: {fileID: 2800000, guid: ce026dfecbc694085a1d87a22f3bb49d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RightTex:
+        m_Texture: {fileID: 2800000, guid: 1f225a337fa434ec1b937d9c8b70a667, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _UpTex:
+        m_Texture: {fileID: 2800000, guid: c9658c52dbf374bf6aeeb26310f71145, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AdditionalLightsStrength: 0.25
+    - _AlphaClip: 0
+    - _AlphaToMask: 0
+    - _Blend: 0
+    - _CelHighlightStart: 0.42
+    - _CelMidMul: 0.58
+    - _Cull: 2
+    - _Cutoff: 0.5
+    - _DirectLightScale: 0.72
+    - _DstBlend: 0
+    - _DstBlendAlpha: 0
+    - _Glossiness: 14
+    - _HighlightStep: 0.62
+    - _InkEdgeStrength: 0.18
+    - _InkEdgeWidth: 0.02
+    - _LightBandLower: -0.08
+    - _LightBandUpper: 0.09
+    - _LightingEnabled: 1
+    - _MaxDiffuseIrradiance: 1
+    - _MaxOutputRgb: 1.1
+    - _OutlineWidth: 1.6
+    - _QueueOffset: 0
+    - _ReceiveShadows: 1
+    - _RimAmount: 0.716
+    - _RimEdgeWidth: 0.01
+    - _RimStrength: 0.28
+    - _RimThreshold: 0.1
+    - _ShadowStep: 0.22
+    - _SpecularAlbedoMix: 0.55
+    - _SpecularEdgeLower: 0.0005
+    - _SpecularEdgeUpper: 0.1
+    - _SpecularIntensity: 0.85
+    - _SpecularLightMix: 0.35
+    - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _Surface: 0
+    - _ZWrite: 1
+    m_Colors:
+    - _AmbientColor: {r: 0.28, g: 0.3, b: 0.36, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _InkColor: {r: 0, g: 0, b: 0, a: 1}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RimColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+    - _ShadowTint: {r: 0.3, g: 0.35, b: 0.45, a: 1}
+    - _SpecularColor: {r: 0.75, g: 0.76, b: 0.8, a: 1}
+    - _TintColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

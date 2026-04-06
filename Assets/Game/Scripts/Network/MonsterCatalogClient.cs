@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using DVBARPG.Core;
+using DVBARPG.Core.Services;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -103,6 +105,12 @@ namespace DVBARPG.Game.Network
 
         private static string FindMapId()
         {
+            var state = GameRoot.Instance?.Services?.Get<SessionState>();
+            if (state != null && !string.IsNullOrWhiteSpace(state.MapId))
+            {
+                return state.MapId.Trim();
+            }
+
             var connector = FindFirstObjectByType<DVBARPG.Game.Network.NetworkRunConnector>();
             if (connector == null)
             {

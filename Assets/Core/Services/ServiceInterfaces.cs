@@ -5,13 +5,6 @@ namespace DVBARPG.Core.Services
         AuthSession Login();
     }
 
-    /// <summary>Глобальный лоадер: модалка со спиннером при любом запросе. Ref-count: BeginRequest/EndRequest.</summary>
-    public interface ILoadingOverlayService
-    {
-        void BeginRequest(string message = null);
-        void EndRequest();
-    }
-
     public interface IRuntimeMetaService
     {
         void FetchCurrentSeason(AuthSession session, System.Action<RuntimeSeasonSnapshot> onDone);

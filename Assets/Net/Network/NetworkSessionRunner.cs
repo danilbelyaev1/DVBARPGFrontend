@@ -52,8 +52,10 @@ namespace DVBARPG.Net.Network
         private string _pendingMapId = "default";
         private float _avgPingMs;
         private bool _runEndedFired;
+        private DateTime _lastSnapshotLogUtc = DateTime.MinValue;
 
         private readonly TimeSpan _resendInterval = TimeSpan.FromMilliseconds(200);
+        private static readonly TimeSpan SnapshotLogInterval = TimeSpan.FromSeconds(5);
         private const int MaxRetries = 10;
 
         public void Disconnect()
@@ -70,6 +72,23 @@ namespace DVBARPG.Net.Network
             _connectOk = false;
             _instanceStarted = false;
             IsConnected = false;
+
+            // Новая UDP-сессия: сервер снова шлёт reliable с PacketSeq 1,2,… — без сброса AcceptReliable отбрасывает все ответы.
+            Interlocked.Exchange(ref _seq, 0);
+            Interlocked.Exchange(ref _packetSeq, 0);
+            _expectedServerPacketSeq = 0;
+            _lastAckFromServer = 0;
+            _pending.Clear();
+            while (_snapshots.TryDequeue(out _)) { }
+            lock (_bufferLock)
+            {
+                _buffer.Clear();
+            }
+
+            _hasTimeOffset = false;
+            _serverToLocalOffsetMs = 0f;
+            _avgPingMs = 0f;
+            _runEndedFired = false;
         }
 
         public void Connect(AuthSession session, string mapId, string serverUrl)
@@ -319,6 +338,11 @@ namespace DVBARPG.Net.Network
                 {
                     return;
                 }
+                catch (ObjectDisposedException)
+                {
+                    // Disconnect/OnDestroy закрывает UdpClient пока ReceiveAsync ещё ждёт — не считаем ошибкой.
+                    return;
+                }
                 catch (Exception e)
                 {
                     DebugLogWarning($"NetworkSessionRunner: recv failed {e.GetType().Name} {e.Message}");
@@ -328,8 +352,17 @@ namespace DVBARPG.Net.Network
                 var json = Encoding.UTF8.GetString(result.Buffer);
                 if (logUdpTraffic)
                 {
-                    // Никогда не логируем снапшоты: они большие и быстро убивают FPS в Editor/Development.
-                    if (!json.Contains("\"type\":\"snapshot\"") && !IsNetStats(json))
+                    var isSnapshot = json.Contains("\"type\":\"snapshot\"");
+                    if (isSnapshot)
+                    {
+                        var now = DateTime.UtcNow;
+                        if (now - _lastSnapshotLogUtc >= SnapshotLogInterval)
+                        {
+                            _lastSnapshotLogUtc = now;
+                            DebugLog($"UDP RECV SNAPSHOT (throttled): {json}");
+                        }
+                    }
+                    else if (!IsNetStats(json))
                     {
                         DebugLog($"UDP RECV: {json}");
                     }
@@ -406,6 +439,11 @@ namespace DVBARPG.Net.Network
                         if (err != null)
                         {
                             DebugLogWarning($"NetworkSessionRunner: server error {err.Code} {err.Message}");
+                            var state = DVBARPG.Core.GameRoot.Instance?.Services?.Get<DVBARPG.Core.Services.SessionState>();
+                            if (state != null)
+                            {
+                                state.LastApiError = err.Code;
+                            }
                             if (string.Equals(err.Code, "auth_failed", StringComparison.OrdinalIgnoreCase))
                             {
                                 DebugLogWarning("NetworkSessionRunner: auth_failed — runtime не смог провалидировать сессию через Laravel. Проверьте: 1) Laravel запущен; 2) у runtime-server задан BACKEND_BASE_URL и он доступен (из Docker — использовать host.docker.internal); 3) BACKEND_API_KEY совпадает с Laravel; 4) в логе «sending connect» TokenLength > 0, characterId/seasonId — от выбранного персонажа. Подробно: PROJECT_OVERVIEW.md, раздел «Устранение auth_failed».");
@@ -619,12 +657,14 @@ namespace DVBARPG.Net.Network
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void DebugLog(string message)
         {
+            Debug.Log(message);
         }
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         private static void DebugLogWarning(string message)
         {
+            Debug.LogWarning(message);
         }
     }
 

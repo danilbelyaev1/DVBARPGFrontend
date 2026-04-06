@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Network;
 using UnityEngine;
@@ -11,11 +12,19 @@ namespace DVBARPG.Game.Network
         [Tooltip("UDP server endpoint.")]
         [SerializeField] private string serverUrl = "udp://127.0.0.1:8081";
         [Tooltip("Server map id.")]
-        [SerializeField] private string mapId = "default";
+        [SerializeField] private string mapId = "act1_hub";
 
         private void Start()
         {
             RunResultState.Reset();
+            var sessionState = DVBARPG.Core.GameRoot.Instance?.Services?.Get<SessionState>();
+            if (sessionState != null)
+            {
+                sessionState.HubTeleportMenuOpen = false;
+                sessionState.HubPortalOpen = false;
+                sessionState.PendingTravelMapCode = null;
+            }
+
             var session = DVBARPG.Core.GameRoot.Instance.Services.Get<ISessionService>();
             if (session is NetworkSessionRunner net)
             {
@@ -24,7 +33,25 @@ namespace DVBARPG.Game.Network
             }
         }
 
-        private System.Collections.IEnumerator ConnectWhenReady(NetworkSessionRunner net, IProfileService profile)
+        private IEnumerator ConnectWhenReady(NetworkSessionRunner net, IProfileService profile)
+        {
+            yield return CoWaitForProfileContext(profile);
+
+            if (net.IsConnected && net.HasInstance)
+            {
+                yield break;
+            }
+
+            yield return CoFetchProfileAndValidateAuth(profile);
+
+            var sessionState = DVBARPG.Core.GameRoot.Instance.Services.Get<SessionState>();
+            var resolvedMapId = !string.IsNullOrWhiteSpace(sessionState?.MapId) ? sessionState.MapId : mapId;
+            var auth = BuildAuthForRun(profile);
+            net.Connect(auth, resolvedMapId, serverUrl);
+        }
+
+        /// <summary>Ожидание выбранного персонажа и сезона (как в оригинальном ConnectWhenReady).</summary>
+        public static IEnumerator CoWaitForProfileContext(IProfileService profile)
         {
             while (profile == null ||
                    profile.CurrentAuth == null ||
@@ -33,12 +60,15 @@ namespace DVBARPG.Game.Network
             {
                 yield return null;
             }
+        }
 
-            // Перед стартом рана получаем профиль (уровень/XP) для HUD.
+        /// <summary>Профиль + validate auth перед UDP.</summary>
+        public static IEnumerator CoFetchProfileAndValidateAuth(IProfileService profile)
+        {
             var meta = DVBARPG.Core.GameRoot.Instance.Services.Get<IRuntimeMetaService>();
             if (meta != null)
             {
-                bool profileDone = false;
+                var profileDone = false;
                 RuntimeProfileSnapshot profileSnapshot = null;
                 meta.FetchProfile(profile.CurrentAuth, profile.SelectedCharacterId, profile.CurrentSeasonId, snapshot =>
                 {
@@ -57,12 +87,11 @@ namespace DVBARPG.Game.Network
                 }
             }
 
-            // Всегда подставляем выбранного персонажа и сезон в сессию (на случай если CharacterSelect не обновил CurrentAuth).
             var auth = BuildAuthForRun(profile);
             meta = DVBARPG.Core.GameRoot.Instance.Services.Get<IRuntimeMetaService>();
             if (meta != null)
             {
-                bool done = false;
+                var done = false;
                 RuntimeAuthSnapshot result = null;
                 meta.ValidateAuth(auth, profile.SelectedCharacterId, profile.CurrentSeasonId, snapshot =>
                 {
@@ -79,9 +108,6 @@ namespace DVBARPG.Game.Network
                 {
                     profile.SetServerLoadout(result.Loadout);
                 }
-                else
-                {
-                }
 
                 if (result != null && result.MoveSpeed > 0f)
                 {
@@ -93,11 +119,9 @@ namespace DVBARPG.Game.Network
                     profile.SetServerSkills(result.Skills);
                 }
             }
-
-            net.Connect(auth, mapId, serverUrl);
         }
 
-        private static AuthSession BuildAuthForRun(IProfileService profile)
+        public static AuthSession BuildAuthForRun(IProfileService profile)
         {
             var current = profile.CurrentAuth;
             if (current == null) return null;
@@ -115,6 +139,5 @@ namespace DVBARPG.Game.Network
                 SeasonId = sid
             };
         }
-
     }
 }

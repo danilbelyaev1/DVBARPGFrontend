@@ -7,7 +7,6 @@ using DVBARPG.Game.Animation;
 using DVBARPG.Game.CharacterCreation;
 using DVBARPG.Net.Network;
 using UnityEngine;
-using DVBARPG.Game.World;
 using DVBARPG.Tools;
 namespace DVBARPG.Game.Player
 {
@@ -36,6 +35,9 @@ namespace DVBARPG.Game.Player
         [Header("Поворот")]
         [Tooltip("Скорость сглаживания поворота.")]
         [SerializeField] private float rotationLerp = 12f;
+        [Header("Высота")]
+        [Tooltip("Макс. изменение Y за секунду (смягчает резкие скачки). 0 = без ограничения.")]
+        [SerializeField] private float maxWorldYDeltaPerSec = 28f;
 
         private struct PendingInput
         {
@@ -45,16 +47,27 @@ namespace DVBARPG.Game.Player
         }
 
         private readonly List<PendingInput> _pending = new();
+        /// <summary>Последняя высота с сервера (Unity Y); между снапшотами без рейкаста.</summary>
+        private float? _lastServerWorldY;
         private bool _hasServerPos;
         private Vector3 _predictedPos;
         private Vector3 _targetForward = Vector3.forward;
         private Coroutine _appearanceRoutine;
         private SidekickAppearanceBuilder _appearanceBuilder;
         private readonly List<GameObject> _runtimeVisualRoots = new();
+        /// <summary>Трансформ, который двигает сервер: совпадает с PlayerInputController (родитель при узле Network/репликаторе на ребёнке).</summary>
+        private Transform _locomotionTransform;
+
+        private void Awake()
+        {
+            _locomotionTransform = ResolveLocomotionTransform();
+        }
 
         private void OnEnable()
         {
-            PlayerTransform = transform;
+            if (_locomotionTransform == null)
+                _locomotionTransform = ResolveLocomotionTransform();
+            PlayerTransform = _locomotionTransform;
             var root = DVBARPG.Core.GameRoot.Instance;
             if (root == null || root.Services == null) return;
             if (!root.Services.TryGet<DVBARPG.Core.Services.ISessionService>(out var session)) return;
@@ -84,7 +97,7 @@ namespace DVBARPG.Game.Player
 
             ClearRuntimeVisualRoots();
 
-            if (PlayerTransform == transform) PlayerTransform = null;
+            if (PlayerTransform == _locomotionTransform) PlayerTransform = null;
         }
 
         private IEnumerator LoadAndApplySelectedAppearanceRoutine()
@@ -219,16 +232,18 @@ namespace DVBARPG.Game.Player
             }
         }
 
-        private Transform ResolveVisualHost()
+        private Transform ResolveLocomotionTransform()
         {
-            // Если репликатор висит на дочернем Network-узле, визуал нужно цеплять к Player (родителю).
             if (transform.parent != null &&
                 string.Equals(transform.name, "Network", System.StringComparison.OrdinalIgnoreCase) &&
                 transform.parent.GetComponent<PlayerInputController>() != null)
-            {
                 return transform.parent;
-            }
             return transform;
+        }
+
+        private Transform ResolveVisualHost()
+        {
+            return _locomotionTransform != null ? _locomotionTransform : transform;
         }
 
         private void ClearRuntimeVisualRoots()
@@ -249,7 +264,11 @@ namespace DVBARPG.Game.Player
             if (enablePrediction)
             {
                 _hasServerPos = true;
-                var serverPos = new Vector3(snap.Player.X, 0f, snap.Player.Y);
+                _lastServerWorldY = snap.Player.Z;
+                var serverPos = new Vector3(
+                    snap.Player.X,
+                    ResolvePlayerWorldY(snap.Player.Z),
+                    snap.Player.Y);
                 _predictedPos = serverPos;
 
                 // Drop acknowledged inputs
@@ -265,8 +284,9 @@ namespace DVBARPG.Game.Player
                     _predictedPos += new Vector3(dir.x, 0f, dir.y) * predictedMoveSpeed * p.Dt;
                 }
 
-                _predictedPos.y = SampleHeight(_predictedPos);
-                transform.position = ApplySmoothing(transform.position, _predictedPos);
+                _predictedPos.y = ResolvePredictedWorldY();
+                var target = ApplyVerticalRateLimit(_locomotionTransform.position, _predictedPos);
+                _locomotionTransform.position = ApplySmoothing(_locomotionTransform.position, target);
             }
         }
 
@@ -284,7 +304,7 @@ namespace DVBARPG.Game.Player
 
             if (!_hasServerPos)
             {
-                _predictedPos = transform.position;
+                _predictedPos = _locomotionTransform.position;
             }
 
             if (dir.sqrMagnitude > 0.0001f)
@@ -294,8 +314,9 @@ namespace DVBARPG.Game.Player
                 // Локально двигаем игрока сразу, не дожидаясь снапшота.
                 _predictedPos += new Vector3(norm.x, 0f, norm.y) * predictedMoveSpeed * dt;
                 _targetForward = new Vector3(norm.x, 0f, norm.y);
-                _predictedPos.y = SampleHeight(_predictedPos);
-                transform.position = ApplySmoothing(transform.position, _predictedPos);
+                _predictedPos.y = ResolvePredictedWorldY();
+                var target = ApplyVerticalRateLimit(_locomotionTransform.position, _predictedPos);
+                _locomotionTransform.position = ApplySmoothing(_locomotionTransform.position, target);
             }
         }
 
@@ -310,8 +331,8 @@ namespace DVBARPG.Game.Player
                 float renderTime = 0f;
                 if (_net.TryGetSnapshotsForRender(interpolationDelayMs, out var from, out var to, out renderTime))
                 {
-                    var fromPos = new Vector3(from.Player.X, 0f, from.Player.Y);
-                    var toPos = new Vector3(to.Player.X, 0f, to.Player.Y);
+                    var fromPos = new Vector3(from.Player.X, from.Player.Z ?? 0f, from.Player.Y);
+                    var toPos = new Vector3(to.Player.X, to.Player.Z ?? 0f, to.Player.Y);
 
                     if (renderTime <= to.ServerTimeMs)
                     {
@@ -324,21 +345,19 @@ namespace DVBARPG.Game.Player
 
                         // Интерполяция для удалённого игрока (без предсказания).
                         var pos = Vector3.Lerp(fromPos, toPos, t);
-                        pos.y = SampleHeight(pos);
-                        transform.position = pos;
+                        _locomotionTransform.position = ApplyVerticalRateLimit(_locomotionTransform.position, pos);
                     }
                     else if (_net.TryGetLastTwoSnapshots(out var prevSnap, out var lastSnap))
                     {
-                        var lastPos = new Vector3(lastSnap.Player.X, 0f, lastSnap.Player.Y);
-                        var prevPos = new Vector3(prevSnap.Player.X, 0f, prevSnap.Player.Y);
+                        var lastPos = new Vector3(lastSnap.Player.X, lastSnap.Player.Z ?? 0f, lastSnap.Player.Y);
+                        var prevPos = new Vector3(prevSnap.Player.X, prevSnap.Player.Z ?? 0f, prevSnap.Player.Y);
                         var dtMs = lastSnap.ServerTimeMs - prevSnap.ServerTimeMs;
                         if (dtMs > 0)
                         {
                             var vel = (lastPos - prevPos) / (dtMs / 1000f);
                             var extraMs = Mathf.Min((float)(renderTime - lastSnap.ServerTimeMs), maxExtrapolationMs);
                             var pos = lastPos + vel * (extraMs / 1000f);
-                            pos.y = SampleHeight(pos);
-                            transform.position = pos;
+                            _locomotionTransform.position = ApplyVerticalRateLimit(_locomotionTransform.position, pos);
                         }
                     }
                 }
@@ -348,14 +367,23 @@ namespace DVBARPG.Game.Player
             if (_targetForward.sqrMagnitude > 0.0001f)
             {
                 var desired = Quaternion.LookRotation(_targetForward, Vector3.up);
-                transform.rotation = Quaternion.Slerp(transform.rotation, desired, rotationLerp * Time.deltaTime);
+                _locomotionTransform.rotation = Quaternion.Slerp(_locomotionTransform.rotation, desired, rotationLerp * Time.deltaTime);
             }
             }
         }
 
-        private float SampleHeight(Vector3 worldPos)
+        private static float ResolvePlayerWorldY(float? serverZ) => serverZ ?? 0f;
+
+        private float ResolvePredictedWorldY() => _lastServerWorldY ?? 0f;
+
+        private Vector3 ApplyVerticalRateLimit(Vector3 current, Vector3 target)
         {
-            return UnifiedHeightSampler.SampleHeight(worldPos);
+            if (maxWorldYDeltaPerSec <= 0f) return target;
+            var dy = target.y - current.y;
+            var max = maxWorldYDeltaPerSec * Time.deltaTime;
+            if (Mathf.Abs(dy) <= max) return target;
+            target.y = current.y + Mathf.Sign(dy) * max;
+            return target;
         }
 
         private Vector3 ApplySmoothing(Vector3 current, Vector3 target)

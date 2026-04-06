@@ -179,6 +179,9 @@ public static class CelShadingMaterialConverter
 
         if (mat.HasProperty("_BaseColor"))
             mat.SetColor("_BaseColor", baseColor);
+        // CelShadingLit multiplies _BaseColor * _Color in the shader; reset legacy _Color so tint is not squared.
+        if (mat.HasProperty("_Color"))
+            mat.SetColor("_Color", Color.white);
 
         if (mat.HasProperty("_EmissionColor"))
             mat.SetColor("_EmissionColor", emissionColor);
@@ -282,11 +285,22 @@ public static class CelShadingMaterialConverter
     {
         foreach (var name in propertyNames)
         {
-            if (mat.HasProperty(name))
-                return mat.GetColor(name);
+            if (!mat.HasProperty(name))
+                continue;
+            var c = mat.GetColor(name);
+            // URP materials often have default-white _BaseColor while Standard tint lives in _Color only.
+            if (name == "_BaseColor" && IsApproximatelyWhite(c))
+                continue;
+            return c;
         }
 
         return fallback;
+    }
+
+    static bool IsApproximatelyWhite(Color c)
+    {
+        const float eps = 0.004f;
+        return Mathf.Abs(c.r - 1f) < eps && Mathf.Abs(c.g - 1f) < eps && Mathf.Abs(c.b - 1f) < eps && Mathf.Abs(c.a - 1f) < eps;
     }
 
     static float PickFirstFloat(Material mat, string[] propertyNames, float fallback)

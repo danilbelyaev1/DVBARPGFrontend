@@ -8,6 +8,9 @@ CBUFFER_START(UnityPerMaterial)
     float4 _BaseMap_ST;
     float4 _BaseMap_TexelSize;
     half4 _BaseColor;
+    // Must mirror [HideInInspector] _Color in CelShadingLit.shader — otherwise GPU ignores per-material tint
+    // (Standard / legacy materials often only set _Color; URP uses _BaseColor as Main Color).
+    half4 _Color;
     half4 _AmbientColor;
     half4 _SpecularColor;
     half _Glossiness;
@@ -48,5 +51,10 @@ CBUFFER_START(UnityPerMaterial)
     half4 _TintColor;
     UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
+
+half4 CelMaterialColorFactor()
+{
+    return _BaseColor * _Color;
+}
 
 #endif

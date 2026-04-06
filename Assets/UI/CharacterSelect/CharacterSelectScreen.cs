@@ -343,6 +343,27 @@ namespace DVBARPG.UI.CharacterSelect
 
             _profile.SetSelectedCharacter(_selectedCharacterId);
             UpdateAuthWithCharacter();
+            var sessionState = GameRoot.Instance?.Services?.Get<SessionState>();
+            if (sessionState != null)
+            {
+                sessionState.CharacterId = _profile.SelectedCharacterId;
+                sessionState.SeasonId = _profile.CurrentSeasonId;
+                sessionState.Token = _profile.CurrentAuth?.Token;
+                sessionState.ActiveActNumber = 1;
+                sessionState.MapId = ActHubResolver.GetHubMapCode(1);
+            }
+
+            var router = GameRoot.Instance?.Services?.Get<FlowRouter>();
+            if (router != null)
+            {
+                if (sessionState != null)
+                {
+                    sessionState.RunLoadingIntent = RunLoadingIntent.LoadHubOnly;
+                }
+
+                router.GoTo(FlowRoute.RunLoading);
+                return;
+            }
             SceneManager.LoadScene("Run");
         }
 

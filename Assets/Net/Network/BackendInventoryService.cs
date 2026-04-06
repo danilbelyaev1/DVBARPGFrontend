@@ -44,24 +44,9 @@ namespace DVBARPG.Net.Network
             return profile?.CurrentAuth;
         }
 
-        private static IEnumerator WithOverlay(IEnumerator inner)
-        {
-            var overlay = GameRoot.Instance?.Services?.Get<ILoadingOverlayService>();
-            overlay?.BeginRequest();
-            try
-            {
-                while (inner.MoveNext())
-                    yield return inner.Current;
-            }
-            finally
-            {
-                overlay?.EndRequest();
-            }
-        }
-
         public void GetInventory(string characterId, string seasonId, Action<InventoryResult> onDone)
         {
-            StartCoroutine(WithOverlay(GetInventoryRoutine(characterId, seasonId, onDone)));
+            StartCoroutine(GetInventoryRoutine(characterId, seasonId, onDone));
         }
 
         private IEnumerator GetInventoryRoutine(string characterId, string seasonId, Action<InventoryResult> onDone)
@@ -121,23 +106,23 @@ namespace DVBARPG.Net.Network
 
         public void Equip(string characterId, string seasonId, string instanceId, string slot, string requestId, Action<InventoryActionResult> onDone)
         {
-            StartCoroutine(WithOverlay(PostRoutine($"/api/runtime/characters/{characterId}/inventory/equip", new { seasonId, instanceId, slot, requestId }, onDone)));
+            StartCoroutine(PostRoutine($"/api/runtime/characters/{characterId}/inventory/equip", new { seasonId, instanceId, slot, requestId }, onDone));
         }
 
         public void Unequip(string characterId, string seasonId, string slot, string requestId, Action<InventoryActionResult> onDone)
         {
-            StartCoroutine(WithOverlay(PostRoutine($"/api/runtime/characters/{characterId}/inventory/unequip", new { seasonId, slot, requestId }, onDone)));
+            StartCoroutine(PostRoutine($"/api/runtime/characters/{characterId}/inventory/unequip", new { seasonId, slot, requestId }, onDone));
         }
 
         public void Move(string characterId, string seasonId, string instanceId, string targetContainer, int? targetSlot, string requestId, Action<InventoryActionResult> onDone)
         {
             var body = new { seasonId, instanceId, targetContainer, targetSlot = targetSlot.HasValue ? targetSlot.Value : (int?)null, requestId };
-            StartCoroutine(WithOverlay(PostRoutine($"/api/runtime/characters/{characterId}/inventory/move", body, onDone)));
+            StartCoroutine(PostRoutine($"/api/runtime/characters/{characterId}/inventory/move", body, onDone));
         }
 
         public void SplitStack(string characterId, string seasonId, string instanceId, int splitAmount, string requestId, Action<SplitStackResult> onDone)
         {
-            StartCoroutine(WithOverlay(SplitStackRoutine(characterId, seasonId, instanceId, splitAmount, requestId, onDone)));
+            StartCoroutine(SplitStackRoutine(characterId, seasonId, instanceId, splitAmount, requestId, onDone));
         }
 
         private IEnumerator SplitStackRoutine(string characterId, string seasonId, string instanceId, int splitAmount, string requestId, Action<SplitStackResult> onDone)
@@ -175,7 +160,7 @@ namespace DVBARPG.Net.Network
 
         public void MergeStacks(string characterId, string seasonId, string sourceInstanceId, string targetInstanceId, string requestId, Action<MergeStacksResult> onDone)
         {
-            StartCoroutine(WithOverlay(MergeStacksRoutine(characterId, seasonId, sourceInstanceId, targetInstanceId, requestId, onDone)));
+            StartCoroutine(MergeStacksRoutine(characterId, seasonId, sourceInstanceId, targetInstanceId, requestId, onDone));
         }
 
         private IEnumerator MergeStacksRoutine(string characterId, string seasonId, string sourceInstanceId, string targetInstanceId, string requestId, Action<MergeStacksResult> onDone)
