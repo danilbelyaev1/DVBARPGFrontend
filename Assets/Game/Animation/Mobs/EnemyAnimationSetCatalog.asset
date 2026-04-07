@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 228d34f9d08b85047a46b561f318672d, type: 3}
+  m_Name: EnemyAnimationSetCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.EnemyAnimationSetCatalog
+  entries:
+  - animationSetId: humanoid
+    baseController: {fileID: 9100000, guid: d2da1f330bb1922428699707e94ee919, type: 2}
+    overrideController: {fileID: 0}
+    avatar: {fileID: 9000000, guid: de13a7420582ded45a8d7d3f96889aca, type: 3}
