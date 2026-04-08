@@ -139,7 +139,7 @@ namespace DVBARPG.Net.Network
                     yield break;
                 }
 
-                outer.Campaign.Ok = true;
+                outer.Campaign.OkExplicit = true;
                 onDone?.Invoke(BuildRuntimeCampaignSnapshot(outer.Campaign));
             }
             catch (Exception)
@@ -163,9 +163,11 @@ namespace DVBARPG.Net.Network
                 }
             }
 
+            var ok = response.OkExplicit ?? true;
+
             return new RuntimeCampaignSnapshot
             {
-                Ok = response.Ok,
+                Ok = ok,
                 Error = response.Error,
                 UnlockedMapCodes = response.UnlockedMapCodes ?? Array.Empty<string>(),
                 VisitedMapCodes = response.VisitedMapCodes ?? Array.Empty<string>(),
@@ -388,7 +390,8 @@ namespace DVBARPG.Net.Network
         [Serializable]
         private sealed class CampaignResponse
         {
-            [JsonProperty("ok")] public bool Ok { get; set; }
+            [JsonProperty("ok")] public bool? OkExplicit { get; set; }
+
             [JsonProperty("error")] public string Error { get; set; }
             [JsonProperty("unlockedMapCodes")] public string[] UnlockedMapCodes { get; set; }
             [JsonProperty("visitedMapCodes")] public string[] VisitedMapCodes { get; set; }

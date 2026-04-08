@@ -13,6 +13,8 @@ namespace DVBARPG.UI.Run
         [Header("Кнопка")]
         [Tooltip("Кнопка открытия/закрытия инвентаря (опционально).")]
         [SerializeField] private Button openButton;
+        [Tooltip("Если задано — переключаем этот HUD-панельный инвентарь вместо additive-сцены Inventory.")]
+        [SerializeField] private GameObject hudInventoryPanel;
 
         [Header("Клавиша (Input System)")]
         [Tooltip("Клавиша переключения инвентаря на ПК.")]
@@ -20,7 +22,11 @@ namespace DVBARPG.UI.Run
 
         private void Awake()
         {
-            if (openButton != null) openButton.onClick.AddListener(InventorySceneHelper.Toggle);
+            if (openButton != null) openButton.onClick.AddListener(ToggleInventory);
+            if (hudInventoryPanel != null)
+            {
+                hudInventoryPanel.SetActive(false);
+            }
         }
 
         private void OnDestroy()
@@ -31,7 +37,18 @@ namespace DVBARPG.UI.Run
         private void Update()
         {
             if (Keyboard.current != null && Keyboard.current[toggleKey].wasPressedThisFrame)
-                InventorySceneHelper.Toggle();
+                ToggleInventory();
+        }
+
+        private void ToggleInventory()
+        {
+            if (hudInventoryPanel != null)
+            {
+                hudInventoryPanel.SetActive(!hudInventoryPanel.activeSelf);
+                return;
+            }
+
+            InventorySceneHelper.Toggle();
         }
     }
 }

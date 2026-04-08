@@ -5,10 +5,13 @@ namespace Tools
     using System.Globalization;
     using System.Linq;
     using System.Text.RegularExpressions;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using UnityEditor;
     using UnityEngine;
     using UnityEngine.AI;
     using UnityEngine.Networking;
+    using UnityEngine.SceneManagement;
 
     /// <summary>
     /// Редактор карт: настройка полей карты (уровень 1 по умолчанию), сбор данных со сцены, отправка на сервер.
@@ -58,6 +61,14 @@ namespace Tools
         private string _serverStatus = "";
         private bool _sending;
 
+        // --- NPC на карте (GET /api/runtime/content/npcs?mapId=) ---
+        private string _npcsEndpoint = "/api/runtime/content/npcs";
+        private string _runtimeBearerToken = "dev";
+        private string _runtimeContractVersion = "1.1";
+        private string _runtimeApiKey = "";
+        private string _npcPlacementStatus = "";
+        private readonly List<NpcSceneRequirement> _npcPlacements = new List<NpcSceneRequirement>();
+
         // --- NavMesh (для коллизий и pathfinding на сервере) ---
         private NavMeshExport _navmeshExport;
 
@@ -86,6 +97,10 @@ namespace Tools
             EditorGUILayout.Space(6f);
             DrawSectionHeader("Точки спавна врагов");
             DrawEnemySpawns();
+
+            EditorGUILayout.Space(6f);
+            DrawSectionHeader("NPC на карте (по mapId с сервера)");
+            DrawNpcPlacements();
 
             EditorGUILayout.Space(6f);
             DrawSectionHeader("Сбор со сцены");
@@ -227,6 +242,214 @@ namespace Tools
                 }
                 EditorGUILayout.EndHorizontal();
             }
+        }
+
+        private void DrawNpcPlacements()
+        {
+            EditorGUILayout.LabelField("Используется тот же базовый URL, что и для тегов врагов.", EditorStyles.miniLabel);
+            _npcsEndpoint = EditorGUILayout.TextField("Эндпоинт списка NPC", _npcsEndpoint);
+            _runtimeBearerToken = EditorGUILayout.TextField("Bearer (runtime)", _runtimeBearerToken);
+            _runtimeContractVersion = EditorGUILayout.TextField("X-Contract-Version", _runtimeContractVersion);
+            _runtimeApiKey = EditorGUILayout.TextField("X-Api-Key (опц.)", _runtimeApiKey);
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Загрузить NPC с сервера (mapId = поле «ID карты»)"))
+            {
+                LoadNpcPlacementsFromBackend();
+            }
+
+            if (GUILayout.Button("Проверить на активной сцене", GUILayout.Width(200)))
+            {
+                RefreshNpcScenePresence();
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            if (!string.IsNullOrWhiteSpace(_npcPlacementStatus))
+            {
+                EditorGUILayout.LabelField(_npcPlacementStatus, EditorStyles.helpBox);
+            }
+
+            EditorGUILayout.HelpBox(
+                "Позиции NPC только на клиенте (сцена). Для каждого NPC с бэка на активной сцене должен быть объект с именем, совпадающим с полем code (без учёта регистра). " +
+                "Иначе «Сохранить карту на сервер» будет заблокировано.",
+                MessageType.None);
+
+            for (var i = 0; i < _npcPlacements.Count; i++)
+            {
+                var row = _npcPlacements[i];
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                var mark = row.FoundOnScene ? "✓" : "✗";
+                var color = row.FoundOnScene ? Color.green : new Color(0.9f, 0.35f, 0.3f);
+                var prev = GUI.color;
+                GUI.color = color;
+                EditorGUILayout.LabelField($"{mark} {row.Code}", EditorStyles.boldLabel);
+                GUI.color = prev;
+                EditorGUILayout.LabelField($"{row.DisplayName} · {row.NpcType}", EditorStyles.miniLabel);
+                if (!string.IsNullOrWhiteSpace(row.SceneCheckDetail))
+                {
+                    EditorGUILayout.LabelField(row.SceneCheckDetail, EditorStyles.miniLabel);
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+        }
+
+        private void LoadNpcPlacementsFromBackend()
+        {
+            var mapId = string.IsNullOrWhiteSpace(_mapId) ? GetDefaultMapId() : _mapId.Trim();
+            if (!TryFetchNpcList(mapId, out var list, out var err))
+            {
+                _npcPlacementStatus = err;
+                return;
+            }
+
+            BuildNpcRowsFromApi(list);
+            RefreshNpcScenePresence();
+            _npcPlacementStatus = $"NPC: {list.Count} по mapId={mapId}. Проверка по сцене «{SceneManager.GetActiveScene().name}».";
+        }
+
+        private void RefreshNpcScenePresence()
+        {
+            if (_npcPlacements.Count == 0)
+            {
+                _npcPlacementStatus = "Сначала загрузите NPC с сервера.";
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            foreach (var row in _npcPlacements)
+            {
+                var t = FindSceneTransformByObjectName(scene, row.Code);
+                row.FoundOnScene = t != null;
+                row.SceneCheckDetail = t != null
+                    ? GetTransformHierarchyPath(t)
+                    : $"нет объекта с именем «{row.Code}»";
+            }
+
+            var missing = _npcPlacements.FindAll(r => !r.FoundOnScene);
+            _npcPlacementStatus = missing.Count == 0
+                ? $"Все NPC найдены на сцене «{scene.name}»."
+                : $"Не найдено на «{scene.name}»: {string.Join(", ", missing.ConvertAll(m => m.Code))}.";
+        }
+
+        private void ApplyRuntimeApiHeaders(UnityWebRequest request)
+        {
+            var token = (_runtimeBearerToken ?? "").Trim();
+            if (!string.IsNullOrEmpty(token))
+            {
+                request.SetRequestHeader("Authorization", "Bearer " + token);
+            }
+
+            var ver = (_runtimeContractVersion ?? "").Trim();
+            if (!string.IsNullOrEmpty(ver))
+            {
+                request.SetRequestHeader("X-Contract-Version", ver);
+            }
+
+            var key = (_runtimeApiKey ?? "").Trim();
+            if (!string.IsNullOrEmpty(key))
+            {
+                request.SetRequestHeader("X-Api-Key", key);
+            }
+        }
+
+        private bool TryFetchNpcList(string mapId, out List<NpcListApiNpc> npcs, out string errorMessage)
+        {
+            npcs = null;
+            errorMessage = "";
+            var baseUrl = BuildUrl(_backendApiBaseUrl, _npcsEndpoint);
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                errorMessage = "NPC: укажите URL сервера.";
+                return false;
+            }
+
+            var url = baseUrl + (baseUrl.Contains("?", StringComparison.Ordinal) ? "&" : "?") + "mapId=" + UnityWebRequest.EscapeURL(mapId);
+            using var request = UnityWebRequest.Get(url);
+            request.timeout = 15;
+            ApplyRuntimeApiHeaders(request);
+
+            var op = request.SendWebRequest();
+            while (!op.isDone) { }
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                errorMessage = $"NPC: {request.responseCode} {request.error} {request.downloadHandler?.text}";
+                return false;
+            }
+
+            NpcListApiEnvelope env;
+            try
+            {
+                env = JsonConvert.DeserializeObject<NpcListApiEnvelope>(request.downloadHandler.text);
+            }
+            catch (Exception ex)
+            {
+                errorMessage = "NPC: разбор JSON — " + ex.Message;
+                return false;
+            }
+
+            if (env == null || !env.Ok || env.Npcs == null)
+            {
+                errorMessage = "NPC: сервер вернул ошибку: " + (env?.Error ?? "пустой ответ");
+                return false;
+            }
+
+            npcs = env.Npcs;
+            return true;
+        }
+
+        private void BuildNpcRowsFromApi(List<NpcListApiNpc> apiNpcs)
+        {
+            _npcPlacements.Clear();
+            foreach (var n in apiNpcs)
+            {
+                if (n == null || string.IsNullOrWhiteSpace(n.Code))
+                {
+                    continue;
+                }
+
+                _npcPlacements.Add(new NpcSceneRequirement
+                {
+                    Code = n.Code.Trim(),
+                    DisplayName = n.Name ?? "",
+                    NpcType = n.NpcType ?? "",
+                    FoundOnScene = false,
+                    SceneCheckDetail = ""
+                });
+            }
+
+            _npcPlacements.Sort((a, b) => string.Compare(a.Code, b.Code, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static Transform FindSceneTransformByObjectName(Scene scene, string objectName)
+        {
+            if (string.IsNullOrWhiteSpace(objectName))
+            {
+                return null;
+            }
+
+            Transform found = null;
+            var count = 0;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                {
+                    if (string.Equals(t.name, objectName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        count++;
+                        found ??= t;
+                    }
+                }
+            }
+
+            if (count > 1)
+            {
+                Debug.LogWarning($"[RuntimeMapExporter] Несколько объектов с именем «{objectName}» ({count}), взят первый.");
+            }
+
+            return found;
         }
 
         private void DrawSceneCollection()
@@ -473,6 +696,39 @@ namespace Tools
             if (_enemySpawnsFromScene && enemySpawnsForPayload.Count == 0)
             {
                 enemySpawnsForPayload = _enemySpawns;
+            }
+
+            if (!TryFetchNpcList(mapId, out var requiredNpcs, out var npcListErr))
+            {
+                _serverStatus = npcListErr;
+                return;
+            }
+
+            if (requiredNpcs.Count > 0)
+            {
+                var scene = SceneManager.GetActiveScene();
+                var missingCodes = new List<string>();
+                foreach (var npc in requiredNpcs)
+                {
+                    if (string.IsNullOrWhiteSpace(npc.Code))
+                    {
+                        continue;
+                    }
+
+                    if (FindSceneTransformByObjectName(scene, npc.Code.Trim()) == null)
+                    {
+                        missingCodes.Add(npc.Code.Trim());
+                    }
+                }
+
+                if (missingCodes.Count > 0)
+                {
+                    _serverStatus =
+                        "Сохранение отменено: на активной сцене «" + scene.name +
+                        "» нет объектов с именем = NPC code: " + string.Join(", ", missingCodes) +
+                        ". Добавьте на сцену пустые GameObject с такими именами (как в RuntimeMapExporter / бэке).";
+                    return;
+                }
             }
 
             var payload = new MapPayload
@@ -847,6 +1103,31 @@ namespace Tools
             public float x;
             public float y;
             public float z;
+        }
+
+        private sealed class NpcListApiEnvelope
+        {
+            [JsonProperty("ok")] public bool Ok;
+            [JsonProperty("error")] public string Error;
+            [JsonProperty("npcs")] public List<NpcListApiNpc> Npcs;
+        }
+
+        private sealed class NpcListApiNpc
+        {
+            [JsonProperty("code")] public string Code;
+            [JsonProperty("name")] public string Name;
+            [JsonProperty("mapCode")] public string MapCode;
+            [JsonProperty("npcType")] public string NpcType;
+            [JsonProperty("meta")] public JObject Meta;
+        }
+
+        private sealed class NpcSceneRequirement
+        {
+            public string Code;
+            public string DisplayName = "";
+            public string NpcType = "";
+            public bool FoundOnScene;
+            public string SceneCheckDetail = "";
         }
     }
 }

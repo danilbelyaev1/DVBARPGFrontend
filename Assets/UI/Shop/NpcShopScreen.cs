@@ -20,49 +20,32 @@ namespace DVBARPG.UI.Shop
 
         private readonly List<GameObject> _rows = new List<GameObject>();
 
-        private void Start()
+        /// <summary>Открыть магазин выбранного NPC (вызывается из UI хаба, не из Start).</summary>
+        public void OpenShop(string npcCode)
         {
-            StartCoroutine(LoadNpcsAndOpenFirstShop());
+            if (string.IsNullOrWhiteSpace(npcCode))
+            {
+                SetStatus("No NPC.");
+                return;
+            }
+
+            StopAllCoroutines();
+            StartCoroutine(CoOpenShop(npcCode.Trim()));
         }
 
-        private IEnumerator LoadNpcsAndOpenFirstShop()
+        private IEnumerator CoOpenShop(string npcCode)
         {
             var services = GameRoot.Instance?.Services;
             var profile = services?.Get<IProfileService>();
-            var session = profile?.CurrentAuth;
-            var mvp = services?.Get<IRuntimeMvpService>();
             var shopState = services?.Get<ShopState>();
-            var sessionState = services?.Get<SessionState>();
-            if (profile == null || session == null || mvp == null || shopState == null || sessionState == null)
+            if (profile == null || shopState == null)
             {
                 SetStatus("Shop init failed.");
                 yield break;
             }
 
-            var npcMapId = string.IsNullOrWhiteSpace(mapId)
-                ? ActHubResolver.ResolveHubMapCode(sessionState, services.Get<CampaignState>())
-                : mapId.Trim();
-
-            bool npcsDone = false;
-            RuntimeNpcListSnapshot npcSnapshot = null;
-            mvp.FetchNpcs(session, npcMapId, result =>
-            {
-                npcSnapshot = result;
-                npcsDone = true;
-            });
-            while (!npcsDone) yield return null;
-
-            if (npcSnapshot == null || !npcSnapshot.Ok || npcSnapshot.Npcs.Length == 0)
-            {
-                var error = npcSnapshot?.Error ?? "npcs_not_found";
-                errorToast?.ShowErrorCode(error);
-                SetStatus(error);
-                yield break;
-            }
-
-            shopState.Npcs = npcSnapshot.Npcs;
-            shopState.ActiveNpcCode = npcSnapshot.Npcs[0].Code;
-            yield return LoadShop(shopState.ActiveNpcCode);
+            shopState.ActiveNpcCode = npcCode;
+            yield return LoadShop(npcCode);
         }
 
         private IEnumerator LoadShop(string npcCode)
