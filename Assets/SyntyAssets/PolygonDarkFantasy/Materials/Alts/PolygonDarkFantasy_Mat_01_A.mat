@@ -68,6 +68,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AdditionalLightsStrength: 0.25
     - _AlphaClip: 0
     - _AlphaToMask: 0
     - _Blend: 0
@@ -83,10 +84,12 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 128
     - _GlossyReflections: 1
+    - _HighlightStep: 0.62
     - _InkEdgeStrength: 0.18
     - _InkEdgeWidth: 0.02
     - _LightBandLower: 0
     - _LightBandUpper: 0.01
+    - _LightingEnabled: 1
     - _MaxDiffuseIrradiance: 1.12
     - _MaxOutputRgb: 1.1
     - _Metallic: 0
@@ -100,8 +103,10 @@ Material:
     - _RimEdgeWidth: 0.01
     - _RimStrength: 0.35
     - _RimThreshold: 0.1
+    - _ShadowStep: 0.22
     - _SmoothnessTextureChannel: 0
     - _SpecularAlbedoMix: 0.55
+    - _SpecularBrightAlbedoReduce: 0.45
     - _SpecularEdgeLower: 0.005
     - _SpecularEdgeUpper: 0.01
     - _SpecularHighlights: 1
@@ -120,6 +125,8 @@ Material:
     - _InkColor: {r: 0, g: 0, b: 0, a: 1}
     - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
     - _RimColor: {r: 1, g: 1, b: 1, a: 1}
+    - _ShadowTint: {r: 0.3, g: 0.35, b: 0.45, a: 1}
     - _SpecularColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+    - _TintColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

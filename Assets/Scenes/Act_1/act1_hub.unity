@@ -2140,6 +2140,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.NetworkProjectilesReplicator
   projectilePrefab: {fileID: 7639910307127199248, guid: d1d913538d54fb74598fe406df60262b, type: 3}
+  enemyProjectileCatalog: {fileID: 11400000, guid: 2cfb877e3ad5b9d43b69174af4506115, type: 2}
   interpolationDelayMs: 30
   maxExtrapolationMs: 120
   scaleByRadius: 1
@@ -37122,7 +37123,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &674539579
 RectTransform:
   m_ObjectHideFlags: 0
@@ -55015,6 +55016,13 @@ MonoBehaviour:
   zoomSpeed: 100
   minDistance: 4
   maxDistance: 12
+  enableOcclusionAvoidance: 1
+  occlusionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  occlusionCastRadius: 0.25
+  occlusionPadding: 0.2
+  occlusionDistanceLerp: 14
 --- !u!1001 &961930215
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -108006,6 +108014,9 @@ MonoBehaviour:
   predictedMoveSpeed: 2.5
   maxPendingInputs: 30
   positionSmoothing: 12
+  idlePositionSmoothing: 24
+  maxPredictionLeadDistance: 0.22
+  hardSnapDistance: 0.75
   rotationLerp: 12
   maxWorldYDeltaPerSec: 28
 --- !u!114 &1950763408
