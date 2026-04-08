@@ -37,6 +37,7 @@ namespace DVBARPG.Net.Network
         public System.Guid? CharacterId { get; set; }
         public System.Guid? SeasonId { get; set; }
         public string MapId { get; set; }
+        public string MonsterId { get; set; }
         public Dictionary<string, float> StatPatch { get; set; }
         public List<SkillInstance> Skills { get; set; }
         public CombatLoadout CombatLoadout { get; set; }
@@ -183,6 +184,7 @@ namespace DVBARPG.Net.Network
     public sealed class MonsterSnapshot
     {
         public System.Guid Id { get; set; }
+        public string MonsterId { get; set; } = "";
         public string Type { get; set; } = "";
         public string State { get; set; } = "";
         public float X { get; set; }

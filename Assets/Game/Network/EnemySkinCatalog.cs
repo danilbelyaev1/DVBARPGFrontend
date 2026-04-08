@@ -13,6 +13,8 @@ namespace DVBARPG.Game.Network
             [Header("Идентификаторы")]
             [Tooltip("Уникальный ID скина.")]
             public string skinId;
+            [Tooltip("Точный ID монстра из снапшота (например ruin_cultist). Имеет приоритет над monsterType.")]
+            public string monsterId;
             [Tooltip("Тип монстра из снапшота (например melee/ranged). Для дефолтного выбора.")]
             public string monsterType;
 
@@ -60,6 +62,22 @@ namespace DVBARPG.Game.Network
                 if (e == null || !e.isDefaultForType) continue;
                 if (string.IsNullOrWhiteSpace(e.monsterType)) continue;
                 if (!string.Equals(e.monsterType, monsterType, StringComparison.OrdinalIgnoreCase)) continue;
+                entry = e;
+                return true;
+            }
+            return false;
+        }
+
+        public bool TryGetDefaultForMonsterId(string monsterId, out Entry entry)
+        {
+            entry = null;
+            if (string.IsNullOrWhiteSpace(monsterId)) return false;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var e = entries[i];
+                if (e == null) continue;
+                if (string.IsNullOrWhiteSpace(e.monsterId)) continue;
+                if (!string.Equals(e.monsterId, monsterId, StringComparison.OrdinalIgnoreCase)) continue;
                 entry = e;
                 return true;
             }

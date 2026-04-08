@@ -14,6 +14,7 @@ namespace DVBARPG.UI.CharacterSelect
     /// </summary>
     public sealed class CharacterSelectScreen : MonoBehaviour
     {
+        private const string CharacterCreateScenePath = "Assets/Scenes/UI/CharacterCreate.unity";
         [Header("Список персонажей")]
         [Tooltip("Родитель для строк списка (вертикальный layout).")]
         [SerializeField] private Transform characterListContent;
@@ -383,7 +384,9 @@ namespace DVBARPG.UI.CharacterSelect
 
         private void LoadCharacterCreateScene()
         {
-            SceneManager.LoadScene("CharacterCreate");
+            // В проекте есть несколько сцен с именем CharacterCreate.
+            // Загружаем по полному пути, чтобы всегда открывать правильную сцену с ожидаемой иерархией превью.
+            SceneManager.LoadScene(CharacterCreateScenePath);
         }
 
         private void OnDeleteSelected()

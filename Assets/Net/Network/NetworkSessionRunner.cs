@@ -27,6 +27,8 @@ namespace DVBARPG.Net.Network
         [Header("Отладка UDP")]
         [Tooltip("Включить логирование отправки/приёма UDP пакетов.")]
         [SerializeField] private bool logUdpTraffic = false;
+        [Tooltip("Логировать входящие snapshot-пакеты не чаще одного раза в 5 секунд.")]
+        [SerializeField] private bool logSnapshotsEveryFiveSeconds = true;
 
         private UdpClient _udp;
         private IPEndPoint _remoteEndPoint;
@@ -134,6 +136,7 @@ namespace DVBARPG.Net.Network
                     Type = debug.Type,
                     Seq = seq,
                     ClientTimeMs = (long)(Time.unscaledTime * 1000f),
+                    MonsterId = debug.MonsterId,
                     StatPatch = debug.StatPatch,
                     Skills = debug.Skills,
                     CombatLoadout = debug.CombatLoadout,
@@ -146,6 +149,7 @@ namespace DVBARPG.Net.Network
                 }
 
                 DebugLog($"NetworkSessionRunner: sending debug command type={env.Type} " +
+                         $"monsterId={env.MonsterId ?? "<null>"} " +
                          $"statPatchCount={(env.StatPatch != null ? env.StatPatch.Count : 0)} " +
                          $"skillsCount={(env.Skills != null ? env.Skills.Count : 0)} " +
                          $"hasLoadout={env.CombatLoadout != null} replaceSkills={env.ReplaceSkills}");
@@ -350,7 +354,7 @@ namespace DVBARPG.Net.Network
                 }
 
                 var json = Encoding.UTF8.GetString(result.Buffer);
-                if (logUdpTraffic)
+                if (logUdpTraffic || logSnapshotsEveryFiveSeconds)
                 {
                     var isSnapshot = json.Contains("\"type\":\"snapshot\"");
                     if (isSnapshot)
@@ -362,7 +366,7 @@ namespace DVBARPG.Net.Network
                             DebugLog($"UDP RECV SNAPSHOT (throttled): {json}");
                         }
                     }
-                    else if (!IsNetStats(json))
+                    else if (logUdpTraffic && !IsNetStats(json))
                     {
                         DebugLog($"UDP RECV: {json}");
                     }

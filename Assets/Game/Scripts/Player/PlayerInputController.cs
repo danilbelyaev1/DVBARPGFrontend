@@ -183,7 +183,9 @@ namespace DVBARPG.Game.Player
 #endif
 
             var ray = cam.ScreenPointToRay(screenPos);
-            var plane = new Plane(Vector3.up, Vector3.zero);
+            // Плоскость ввода должна проходить через текущую высоту игрока,
+            // иначе при виде сверху и неровном уровне появляется смещение/инверсия направления.
+            var plane = new Plane(Vector3.up, _self.position);
             if (!plane.Raycast(ray, out var enter)) return Vector3.zero;
 
             var hit = ray.GetPoint(enter);

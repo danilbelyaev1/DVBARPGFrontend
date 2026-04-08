@@ -345,14 +345,32 @@ namespace DVBARPG.Game.CharacterCreation
         private IEnumerator GetColorPresetsRoutine(string speciesName, Action<List<(int id, string displayName)>> onDone)
         {
             var list = new List<(int id, string displayName)>();
-            if (string.IsNullOrWhiteSpace(speciesName)) { onDone(list); yield break; }
+            if (string.IsNullOrWhiteSpace(speciesName))
+            {
+                var dbFallback = _cachedDbManager ?? new DatabaseManager();
+                if (dbFallback.GetCurrentDbConnection() == null)
+                    dbFallback.GetDbConnection(true);
+                yield return null;
+                var global = SidekickColorPreset.GetAllByColorGroup(dbFallback, ColorGroup.Species);
+                if (global != null)
+                {
+                    var seenGlobal = new HashSet<int>();
+                    for (int i = 0; i < global.Count; i++)
+                    {
+                        var p = global[i];
+                        if (p == null || !seenGlobal.Add(p.ID)) continue;
+                        list.Add((p.ID, string.IsNullOrEmpty(p.Name) ? "Preset " + p.ID : p.Name));
+                    }
+                }
+                onDone(list);
+                yield break;
+            }
             var dbManager = _cachedDbManager ?? new DatabaseManager();
             if (dbManager.GetCurrentDbConnection() == null)
                 dbManager.GetDbConnection(true);
             yield return null;
 
             var species = SidekickSpecies.GetByName(dbManager, speciesName);
-            if (species == null) { onDone(list); yield break; }
 
             var seen = new HashSet<int>();
             void Add(List<SidekickColorPreset> presets)
@@ -367,8 +385,11 @@ namespace DVBARPG.Game.CharacterCreation
             }
 
             // Для кожи/волос в этом проекте берём species-пресеты.
-            Add(SidekickColorPreset.GetAllByColorGroupAndSpecies(dbManager, ColorGroup.Species, species));
-            Add(SidekickColorPreset.GetAllBySpecies(dbManager, species));
+            if (species != null)
+            {
+                Add(SidekickColorPreset.GetAllByColorGroupAndSpecies(dbManager, ColorGroup.Species, species));
+                Add(SidekickColorPreset.GetAllBySpecies(dbManager, species));
+            }
             if (list.Count == 0)
                 Add(SidekickColorPreset.GetAllByColorGroup(dbManager, ColorGroup.Species));
             onDone(list);
@@ -469,7 +490,7 @@ namespace DVBARPG.Game.CharacterCreation
                 filtered.Add(entry);
             }
 
-            onDone(filtered);
+            onDone(filtered.Count > 0 ? filtered : all);
         }
 
         private IEnumerator GetZoneColorPresetsRoutine(
@@ -892,10 +913,13 @@ namespace DVBARPG.Game.CharacterCreation
             if (partsToUse.Count == 0) { onDone?.Invoke(null); yield break; }
 
             var blend = data.BlendShapes ?? new BlendShapeValues();
-            runtime.BodyTypeBlendValue = blend.BodyTypeValue;
-            runtime.BodySizeHeavyBlendValue = blend.BodySizeValue > 0 ? blend.BodySizeValue : 0f;
-            runtime.BodySizeSkinnyBlendValue = blend.BodySizeValue < 0 ? -blend.BodySizeValue : 0f;
-            runtime.MusclesBlendValue = blend.MuscleValue;
+            var bodyType = NormalizeBodyType(blend.BodyTypeValue);
+            var bodySize = NormalizeSignedBlend(blend.BodySizeValue);
+            var muscle = NormalizeSignedBlend(blend.MuscleValue);
+            runtime.BodyTypeBlendValue = bodyType;
+            runtime.BodySizeHeavyBlendValue = bodySize > 0 ? bodySize : 0f;
+            runtime.BodySizeSkinnyBlendValue = bodySize < 0 ? -bodySize : 0f;
+            runtime.MusclesBlendValue = muscle;
 
             runtime.PopulateUVDictionary(partsToUse);
             var hairUvs = BuildUvSet(
@@ -1086,6 +1110,20 @@ namespace DVBARPG.Game.CharacterCreation
             }
 
             onDone?.Invoke(character);
+        }
+
+        private static float NormalizeBodyType(float value)
+        {
+            if (value >= 0f && value <= 100f)
+                return Mathf.Clamp(value * 2f - 100f, -100f, 100f);
+            return Mathf.Clamp(value, -100f, 100f);
+        }
+
+        private static float NormalizeSignedBlend(float value)
+        {
+            if (value >= 0f && value <= 1f) return value * 100f;
+            if (value >= -1f && value < 0f) return value * 100f;
+            return Mathf.Clamp(value, -100f, 100f);
         }
     }
 }

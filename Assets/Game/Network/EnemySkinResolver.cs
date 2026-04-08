@@ -48,7 +48,8 @@ namespace DVBARPG.Game.Network
                 return false;
             }
 
-            _visualHost.SetVisual(prefab);
+            var useFallbackVisual = skin?.fallbackPrefab == null;
+            _visualHost.SetVisual(prefab, useFallbackVisual);
             _animationBinder.Initialize(animationCatalog, fallbackController);
             _animationBinder.Apply(skin?.animationSetId, _visualHost.CurrentVisual);
             return true;

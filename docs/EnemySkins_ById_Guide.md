@@ -1,12 +1,14 @@
 # Система скинов врагов по ID: инструкция
 
 Документ описывает:
+
 - что сделать **сейчас**, чтобы система заработала в проекте;
 - как потом добавлять новых врагов/скины/анимации без правок кода.
 
 ## 1) Что уже реализовано в коде
 
 Добавлены компоненты и каталоги:
+
 - `Assets/Game/Network/EnemySkinCatalog.cs`
 - `Assets/Game/Network/EnemyAnimationSetCatalog.cs`
 - `Assets/Game/Network/EnemyVisualHost.cs`
@@ -15,6 +17,7 @@
 - интеграция в `Assets/Game/Scripts/Network/NetworkMonstersReplicator.cs`
 
 Логика:
+
 - монстр получает `skinId` (override по `monsterId` или default по `monsterType`);
 - резолвер выбирает визуал из каталога;
 - биндер применяет анимации через `animationSetId` (`baseController` / `overrideController` / `avatar`).
@@ -26,31 +29,32 @@
 1. В Project: `Create -> DVBARPG -> Enemies -> Animation Set Catalog`.
 2. Назовите, например: `EnemyAnimationSetCatalog.asset`.
 3. Для каждого набора заполните:
-   - `animationSetId` (пример: `humanoid_melee_v1`);
-   - `baseController` (или `overrideController`);
-   - `avatar` (опционально, если риг отличается).
+  - `animationSetId` (пример: `humanoid_melee_v1`);
+  - `baseController` (или `overrideController`);
+  - `avatar` (опционально, если риг отличается).
 
 ### Шаг 2. Создать каталог скинов
 
 1. В Project: `Create -> DVBARPG -> Enemies -> Skin Catalog`.
 2. Назовите, например: `EnemySkinCatalog.asset`.
 3. Для каждого скина заполните:
-   - `skinId` (уникальный, пример: `wolf_black_01`);
-   - `monsterType` (тип из снапшота, например `melee`/`ranged`);
-   - `fallbackPrefab` (визуал врага);
-   - `animationSetId` (должен совпадать с ID из animation catalog);
-   - `isDefaultForType` (включить для дефолтного скина типа).
+  - `skinId` (уникальный, пример: `wolf_black_01`);
+  - `monsterType` (тип из снапшота, например `melee`/`ranged`);
+  - `fallbackPrefab` (визуал врага);
+  - `animationSetId` (должен совпадать с ID из animation catalog);
+  - `isDefaultForType` (включить для дефолтного скина типа).
 
 Примечание:
+
 - поле `addressableKey` уже есть на будущее, но в текущей сборке используется `fallbackPrefab`.
 
 ### Шаг 3. Подключить каталоги в сцене Run
 
 1. Откройте объект с `NetworkMonstersReplicator`.
 2. Заполните поля:
-   - `Enemy Skin Catalog` -> `EnemySkinCatalog.asset`;
-   - `Enemy Animation Set Catalog` -> `EnemyAnimationSetCatalog.asset`;
-   - `Fallback Skin Id` (опционально, если нужен общий fallback).
+  - `Enemy Skin Catalog` -> `EnemySkinCatalog.asset`;
+  - `Enemy Animation Set Catalog` -> `EnemyAnimationSetCatalog.asset`;
+  - `Fallback Skin Id` (опционально, если нужен общий fallback).
 
 ### Шаг 4. Проверить
 
@@ -64,10 +68,10 @@
 
 1. Подготовьте новый префаб врага (с `Animator` и нужным ригом).
 2. Добавьте новый `Entry` в `EnemySkinCatalog`:
-   - новый `skinId`;
-   - существующий `monsterType`;
-   - `fallbackPrefab` = новый префаб;
-   - `animationSetId` = нужный набор.
+  - новый `skinId`;
+  - существующий `monsterType`;
+  - `fallbackPrefab` = новый префаб;
+  - `animationSetId` = нужный набор.
 3. Если нужен новый набор анимаций, добавьте `Entry` в `EnemyAnimationSetCatalog`.
 
 Готово: код менять не нужно.
@@ -76,8 +80,8 @@
 
 1. Убедитесь, что сервер в `MonsterSnapshot.Type` присылает новый `monsterType`.
 2. В `EnemySkinCatalog` добавьте хотя бы один `Entry` с:
-   - `monsterType` = новый тип;
-   - `isDefaultForType` = true.
+  - `monsterType` = новый тип;
+  - `isDefaultForType` = true.
 3. Привяжите префаб и `animationSetId`.
 
 Готово: новый тип подхватится по default для типа.
@@ -97,11 +101,17 @@
 - **Не те клипы**: проверьте соответствие `animationSetId` между двумя каталогами.
 - **Неверный скин**: проверьте `monsterType` и флаг `isDefaultForType`.
 - **Пустой результат**: проверьте, что в `NetworkMonstersReplicator` назначены оба каталога.
+- **Type mismatch в `fallbackPrefab`**:
+  - поле `fallbackPrefab` в коде имеет тип `GameObject` (`EnemySkinCatalog.Entry.fallbackPrefab`);
+  - перетаскивайте **только prefab-asset из окна Project** (синий куб), а не объект из `Hierarchy`;
+  - нельзя назначать `AnimatorController`, `Avatar`, `AnimationClip` или `FBX`-подассет вместо prefab;
+  - если у вас только модель (`.fbx`), сначала создайте из неё prefab (`Create Prefab Variant` или перетащите в сцену и сохраните как prefab), затем назначьте этот prefab;
+  - у назначаемого prefab желательно должен быть `Animator` на корне или дочернем объекте.
 
 ## 6) Рекомендация по именованию ID
 
 - `skinId`: `race_or_theme_variant_index`  
-  Пример: `orc_warrior_01`, `undead_elite_02`
+Пример: `orc_warrior_01`, `undead_elite_02`
 - `animationSetId`: `rig_role_version`  
-  Пример: `humanoid_melee_v1`, `beast_ranged_v1`
+Пример: `humanoid_melee_v1`, `beast_ranged_v1`
 

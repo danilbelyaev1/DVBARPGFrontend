@@ -23,7 +23,7 @@ namespace DVBARPG.Game.Network
         [Tooltip("Базовый диаметр префаба в мировых единицах. Если 0 — вычислим автоматически по Renderer.bounds.")]
         [SerializeField] private float prefabBaseDiameter = 0f;
         [Tooltip("Прижимать снаряды к земле локальным рейкастом (высота сервера в снапшоте — поле z).")]
-        [SerializeField] private bool followGround = false;
+        [SerializeField] private bool followGround = true;
         [Tooltip("Слои, по которым ищем землю для снарядов.")]
         [SerializeField] private LayerMask groundMask = ~0;
         [Tooltip("Доп. смещение по высоте для снарядов.")]
@@ -90,10 +90,12 @@ namespace DVBARPG.Game.Network
                     pos = vel.sqrMagnitude > 0.0001f ? toPos + vel * (extraMs / 1000f) : toPos;
                 }
 
-                if (followGround)
-                    pos.y = SampleProjectileHeight(pos, tr);
-                else if (p.Z.HasValue)
+                // После ввода третьей оси сервер присылает высоту в Z.
+                // При наличии Z всегда доверяем серверной высоте.
+                if (p.Z.HasValue)
                     pos.y = p.Z.Value + heightOffset;
+                else if (followGround)
+                    pos.y = SampleProjectileHeight(pos, tr);
                 else
                     pos.y = heightOffset;
                 tr.position = pos;

@@ -15,6 +15,9 @@ EditorBuildSettings:
     path: Assets/Scenes/UI/CharacterSelect.unity
     guid: ba7cd7a072c14998b21596e1ebfa8e8a
   - enabled: 1
+    path: Assets/Scenes/UI/CharacterCreate.unity
+    guid: 696c53a0d4f223d41a29f3cb0156ff3d
+  - enabled: 1
     path: Assets/Scenes/UI/RunLoading.unity
     guid: d3591ef95a0ebae46aba53a9ef739a81
   - enabled: 1
@@ -29,9 +32,6 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/UI/Inventory.unity
     guid: c45681f7d912a0d408968663166c5f16
-  - enabled: 1
-    path: Assets/Scenes/UI/CharacterCreate.unity
-    guid: ee7436c23328b9d4db470bb66b6037e7
   - enabled: 1
     path: Assets/Scenes/UI/NpcShop.unity
     guid: b2c97cabe3777884796db6290f6d9bac

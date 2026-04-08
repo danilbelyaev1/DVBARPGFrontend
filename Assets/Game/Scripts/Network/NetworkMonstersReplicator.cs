@@ -71,7 +71,7 @@ namespace DVBARPG.Game.Network
                         Registry[m.Id] = tr;
                     }
 
-                    ApplySkinIfNeeded(m.Id, m.Type, tr);
+                    ApplySkinIfNeeded(m.Id, m.MonsterId, m.Type, tr);
 
                     var hasFrom = TryGetMonsterPos(from, m.Id, out var fromPos);
                     var toY = m.Z ?? 0f;
@@ -130,10 +130,10 @@ namespace DVBARPG.Game.Network
             }
         }
 
-        private void ApplySkinIfNeeded(Guid monsterId, string monsterType, Transform tr)
+        private void ApplySkinIfNeeded(Guid monsterId, string snapshotMonsterId, string monsterType, Transform tr)
         {
             if (tr == null) return;
-            var desiredSkinId = ResolveDesiredSkinId(monsterId, monsterType);
+            var desiredSkinId = ResolveDesiredSkinId(monsterId, snapshotMonsterId, monsterType);
             if (string.IsNullOrWhiteSpace(desiredSkinId))
             {
                 _appliedSkinByMonster[monsterId] = string.Empty;
@@ -158,10 +158,15 @@ namespace DVBARPG.Game.Network
                 _appliedSkinByMonster[monsterId] = desiredSkinId;
         }
 
-        private string ResolveDesiredSkinId(Guid monsterId, string monsterType)
+        private string ResolveDesiredSkinId(Guid monsterId, string snapshotMonsterId, string monsterType)
         {
             if (SkinOverrides.TryGetValue(monsterId, out var overrideSkin) && !string.IsNullOrWhiteSpace(overrideSkin))
                 return overrideSkin;
+
+            if (enemySkinCatalog != null &&
+                enemySkinCatalog.TryGetDefaultForMonsterId(snapshotMonsterId, out var byMonsterId) &&
+                !string.IsNullOrWhiteSpace(byMonsterId.skinId))
+                return byMonsterId.skinId;
 
             if (enemySkinCatalog != null && enemySkinCatalog.TryGetDefaultForType(monsterType, out var byType) &&
                 !string.IsNullOrWhiteSpace(byType.skinId))

@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
+using Synty.SidekickCharacters.Enums;
 
 namespace DVBARPG.UI.CharacterCreate
 {
@@ -248,6 +249,8 @@ namespace DVBARPG.UI.CharacterCreate
             appearanceBuilder.GetDefaultAppearanceData(speciesName, _selectedGender, bodySize, muscle, data =>
             {
                 _currentAppearance = data ?? BuildFallbackDefaultAppearance();
+                StripArmorAttachmentsForCreation(_currentAppearance);
+                NormalizeBlendShapesForRuntime(_currentAppearance?.BlendShapes);
                 SyncUIFromAppearance();
                 PopulateHairDropdown();
                 PopulateFacialHairDropdown();
@@ -386,13 +389,9 @@ namespace DVBARPG.UI.CharacterCreate
         private void SelectGender(string gender)
         {
             _selectedGender = gender ?? "male";
-            if (_currentAppearance?.BlendShapes != null)
-            {
-                _currentAppearance.BlendShapes.BodyTypeValue = _selectedGender == "female" ? 100f : 0f;
-                ApplyBlendShapesToPreview();
-            }
-            else
-                LoadDefaultAppearanceAndRefresh();
+            // Важный момент: при смене пола нужно пересобирать набор частей,
+            // иначе female может остаться без Wrap (лифчика) из male-сборки.
+            LoadDefaultAppearanceAndRefresh();
         }
 
         private void PopulateHairDropdown()
@@ -794,6 +793,8 @@ namespace DVBARPG.UI.CharacterCreate
                     ?? _currentAppearance.HairColorPresetId
                     ?? _currentAppearance.OtherColorPresetId;
             }
+            StripArmorAttachmentsForCreation(_currentAppearance);
+            NormalizeBlendShapesForRuntime(_currentAppearance?.BlendShapes);
             var classId = _selectedClassId;
             var seasonId = profile.CurrentSeasonId;
             meta.CreateCharacter(auth, name, classId, _selectedGender, _currentAppearance, result =>
@@ -827,6 +828,55 @@ namespace DVBARPG.UI.CharacterCreate
         {
             if (statusText != null) statusText.text = message;
             if (statusTmp != null) statusTmp.text = message;
+        }
+
+        private static void StripArmorAttachmentsForCreation(CharacterAppearanceData appearance)
+        {
+            if (appearance?.Parts == null) return;
+
+            bool IsArmorAttachment(int partType)
+            {
+                var t = (CharacterPartType)partType;
+                return t == CharacterPartType.AttachmentHead
+                       || t == CharacterPartType.AttachmentFace
+                       || t == CharacterPartType.AttachmentBack
+                       || t == CharacterPartType.AttachmentHipsFront
+                       || t == CharacterPartType.AttachmentHipsBack
+                       || t == CharacterPartType.AttachmentHipsLeft
+                       || t == CharacterPartType.AttachmentHipsRight
+                       || t == CharacterPartType.AttachmentShoulderLeft
+                       || t == CharacterPartType.AttachmentShoulderRight
+                       || t == CharacterPartType.AttachmentElbowLeft
+                       || t == CharacterPartType.AttachmentElbowRight
+                       || t == CharacterPartType.AttachmentKneeLeft
+                       || t == CharacterPartType.AttachmentKneeRight;
+            }
+
+            appearance.Parts.RemoveAll(p => p == null || IsArmorAttachment(p.PartType));
+        }
+
+        private static void NormalizeBlendShapesForRuntime(BlendShapeValues blend)
+        {
+            if (blend == null) return;
+            blend.BodyTypeValue = NormalizeBodyType(blend.BodyTypeValue);
+            blend.BodySizeValue = NormalizeSignedBlend(blend.BodySizeValue);
+            blend.MuscleValue = NormalizeSignedBlend(blend.MuscleValue);
+        }
+
+        private static float NormalizeBodyType(float value)
+        {
+            // Поддержка старого диапазона 0..100 (male=0,female=100).
+            if (value >= 0f && value <= 100f)
+                return Mathf.Clamp(value * 2f - 100f, -100f, 100f);
+            return Mathf.Clamp(value, -100f, 100f);
+        }
+
+        private static float NormalizeSignedBlend(float value)
+        {
+            // Поддержка 0..1 (slider normalized) и -1..1.
+            if (value >= 0f && value <= 1f) return value * 100f;
+            if (value >= -1f && value < 0f) return value * 100f;
+            return Mathf.Clamp(value, -100f, 100f);
         }
     }
 }

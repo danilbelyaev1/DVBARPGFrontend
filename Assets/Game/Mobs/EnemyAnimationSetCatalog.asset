@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: EnemyAnimationSetCatalog
   m_EditorClassIdentifier: Assembly-CSharp::DVBARPG.Game.Network.EnemyAnimationSetCatalog
   entries:
-  - animationSetId: humanoid
+  - animationSetId: ruin_cultist
     baseController: {fileID: 9100000, guid: d2da1f330bb1922428699707e94ee919, type: 2}
     overrideController: {fileID: 0}
-    avatar: {fileID: 9000000, guid: de13a7420582ded45a8d7d3f96889aca, type: 3}
+    avatar: {fileID: 9000000, guid: 0dcad412e4df7364880958fbda1ede6b, type: 3}

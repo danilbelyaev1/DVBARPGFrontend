@@ -11,7 +11,9 @@ namespace DVBARPG.Core.Services
         /// <summary>Имя вида в БД Sidekick (sk_species.name).</summary>
         private static readonly Dictionary<string, string> ClassToSpeciesName = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
         {
-            { "hunter", "Elf" },
+            // Для MVP в creation Hunter должен быть базовым (без классовой брони),
+            // поэтому используем Human species.
+            { "hunter", "Human" },
             { "vanguard", "Human" },
             { "mystic", "Human" }
         };

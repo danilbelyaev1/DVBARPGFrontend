@@ -32,6 +32,12 @@ namespace DVBARPG.Game.Player
         [SerializeField] private int maxPendingInputs = 30;
         [Tooltip("Сглаживание позиции при применении предсказанной/серверной позы (0 = сразу, больше = мягче).")]
         [SerializeField] private float positionSmoothing = 12f;
+        [Tooltip("Если входов нет (игрок отпустил движение), позиция принимается быстрее.")]
+        [SerializeField] private float idlePositionSmoothing = 24f;
+        [Tooltip("Макс. отрыв предсказанной позиции от серверной по XZ (уменьшает дёрганье в стену).")]
+        [SerializeField] private float maxPredictionLeadDistance = 0.22f;
+        [Tooltip("При большой рассинхронизации позицию жёстко снапать к серверу.")]
+        [SerializeField] private float hardSnapDistance = 0.75f;
         [Header("Поворот")]
         [Tooltip("Скорость сглаживания поворота.")]
         [SerializeField] private float rotationLerp = 12f;
@@ -67,6 +73,9 @@ namespace DVBARPG.Game.Player
         {
             if (_locomotionTransform == null)
                 _locomotionTransform = ResolveLocomotionTransform();
+            // В некоторых сценах на корне игрока сохранён scale=2.
+            // Для боевой репликации держим единичный масштаб.
+            _locomotionTransform.localScale = Vector3.one;
             PlayerTransform = _locomotionTransform;
             var root = DVBARPG.Core.GameRoot.Instance;
             if (root == null || root.Services == null) return;
@@ -149,6 +158,7 @@ namespace DVBARPG.Game.Player
         {
             if (built == null) return;
             var host = ResolveVisualHost();
+            host.localScale = Vector3.one;
             var previousAnimators = host.GetComponentsInChildren<Animator>(true);
             ClearRuntimeVisualRoots();
 
@@ -284,9 +294,19 @@ namespace DVBARPG.Game.Player
                     _predictedPos += new Vector3(dir.x, 0f, dir.y) * predictedMoveSpeed * p.Dt;
                 }
 
+                // Не даём клиентскому предсказанию сильно "убегать" от сервера (часто при упоре в стену).
+                _predictedPos = ClampPredictionLead(_predictedPos, serverPos);
+                var current = _locomotionTransform.position;
+                if ((new Vector2(current.x - serverPos.x, current.z - serverPos.z)).sqrMagnitude >
+                    hardSnapDistance * hardSnapDistance)
+                {
+                    _locomotionTransform.position = serverPos;
+                    _predictedPos = serverPos;
+                }
+
                 _predictedPos.y = ResolvePredictedWorldY();
                 var target = ApplyVerticalRateLimit(_locomotionTransform.position, _predictedPos);
-                _locomotionTransform.position = ApplySmoothing(_locomotionTransform.position, target);
+                _locomotionTransform.position = ApplySmoothing(_locomotionTransform.position, target, _pending.Count == 0);
             }
         }
 
@@ -316,7 +336,7 @@ namespace DVBARPG.Game.Player
                 _targetForward = new Vector3(norm.x, 0f, norm.y);
                 _predictedPos.y = ResolvePredictedWorldY();
                 var target = ApplyVerticalRateLimit(_locomotionTransform.position, _predictedPos);
-                _locomotionTransform.position = ApplySmoothing(_locomotionTransform.position, target);
+                _locomotionTransform.position = ApplySmoothing(_locomotionTransform.position, target, false);
             }
         }
 
@@ -386,10 +406,27 @@ namespace DVBARPG.Game.Player
             return target;
         }
 
-        private Vector3 ApplySmoothing(Vector3 current, Vector3 target)
+        private Vector3 ClampPredictionLead(Vector3 predicted, Vector3 server)
         {
-            if (positionSmoothing <= 0f) return target;
-            var alpha = 1f - Mathf.Exp(-positionSmoothing * Time.deltaTime);
+            if (maxPredictionLeadDistance <= 0f) return predicted;
+            var dx = predicted.x - server.x;
+            var dz = predicted.z - server.z;
+            var sqr = dx * dx + dz * dz;
+            var maxSqr = maxPredictionLeadDistance * maxPredictionLeadDistance;
+            if (sqr <= maxSqr || sqr < 0.000001f) return predicted;
+
+            var len = Mathf.Sqrt(sqr);
+            var k = maxPredictionLeadDistance / len;
+            predicted.x = server.x + dx * k;
+            predicted.z = server.z + dz * k;
+            return predicted;
+        }
+
+        private Vector3 ApplySmoothing(Vector3 current, Vector3 target, bool isIdle)
+        {
+            var smoothing = isIdle ? idlePositionSmoothing : positionSmoothing;
+            if (smoothing <= 0f) return target;
+            var alpha = 1f - Mathf.Exp(-smoothing * Time.deltaTime);
             return Vector3.Lerp(current, target, alpha);
         }
     }
