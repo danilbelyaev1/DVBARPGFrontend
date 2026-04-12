@@ -1,4 +1,5 @@
 using DVBARPG.UI.Inventory;
+using DVBARPG.UI.Common;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -15,6 +16,7 @@ namespace DVBARPG.UI.Run
         [SerializeField] private Button openButton;
         [Tooltip("Если задано — переключаем этот HUD-панельный инвентарь вместо additive-сцены Inventory.")]
         [SerializeField] private GameObject hudInventoryPanel;
+        [SerializeField] private UiModalLayer inventoryModalLayer;
 
         [Header("Клавиша (Input System)")]
         [Tooltip("Клавиша переключения инвентаря на ПК.")]
@@ -25,6 +27,11 @@ namespace DVBARPG.UI.Run
             if (openButton != null) openButton.onClick.AddListener(ToggleInventory);
             if (hudInventoryPanel != null)
             {
+                if (inventoryModalLayer == null)
+                {
+                    inventoryModalLayer = hudInventoryPanel.GetComponent<UiModalLayer>();
+                }
+
                 hudInventoryPanel.SetActive(false);
             }
         }
@@ -44,7 +51,21 @@ namespace DVBARPG.UI.Run
         {
             if (hudInventoryPanel != null)
             {
-                hudInventoryPanel.SetActive(!hudInventoryPanel.activeSelf);
+                if (inventoryModalLayer != null)
+                {
+                    if (inventoryModalLayer.IsVisible)
+                    {
+                        inventoryModalLayer.Hide();
+                    }
+                    else
+                    {
+                        inventoryModalLayer.Show();
+                    }
+                }
+                else
+                {
+                    hudInventoryPanel.SetActive(!hudInventoryPanel.activeSelf);
+                }
                 return;
             }
 

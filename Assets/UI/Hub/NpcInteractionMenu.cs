@@ -14,6 +14,8 @@ namespace DVBARPG.UI.Hub
     /// </summary>
     public sealed class NpcInteractionMenu : MonoBehaviour
     {
+        private const string LeftWindowId = "hub_npc_menu";
+
         [SerializeField] private GameObject panelRoot;
         [SerializeField] private Text titleText;
         [SerializeField] private Transform buttonsParent;
@@ -49,6 +51,8 @@ namespace DVBARPG.UI.Hub
             {
                 panelRoot.SetActive(false);
             }
+
+            HudWindowCoordinator.LeftWindowOpened += OnOtherLeftWindowOpened;
         }
 
         private void OnDestroy()
@@ -57,6 +61,8 @@ namespace DVBARPG.UI.Hub
             {
                 closeButton.onClick.RemoveListener(Hide);
             }
+
+            HudWindowCoordinator.LeftWindowOpened -= OnOtherLeftWindowOpened;
         }
 
         public void Open(NpcInfo npc)
@@ -80,6 +86,7 @@ namespace DVBARPG.UI.Hub
 
             ClearButtons();
             BuildActions(npc);
+            HudWindowCoordinator.NotifyLeftWindowOpened(LeftWindowId);
             panelRoot.SetActive(true);
         }
 
@@ -96,6 +103,19 @@ namespace DVBARPG.UI.Hub
             }
 
             _current = null;
+        }
+
+        private void OnOtherLeftWindowOpened(string sourceId)
+        {
+            if (string.Equals(sourceId, LeftWindowId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (panelRoot != null && panelRoot.activeSelf)
+            {
+                Hide();
+            }
         }
 
         private void BuildActions(NpcInfo npc)
@@ -140,14 +160,34 @@ namespace DVBARPG.UI.Hub
         private void OpenTrade(NpcInfo npc)
         {
             Hide();
-            if (shopPanelRoot != null)
+            if (shopScreen == null)
             {
-                shopPanelRoot.SetActive(true);
+                errorToast?.ShowErrorCode("shop_ui_not_configured");
+                return;
             }
 
-            if (shopScreen != null)
+            var targetRoot = shopPanelRoot != null ? shopPanelRoot : shopScreen.gameObject;
+            EnsureActiveHierarchy(targetRoot);
+            EnsureActiveHierarchy(shopScreen.gameObject);
+            shopScreen.OpenShop(npc.Code);
+        }
+
+        private static void EnsureActiveHierarchy(GameObject target)
+        {
+            if (target == null)
             {
-                shopScreen.OpenShop(npc.Code);
+                return;
+            }
+
+            var current = target.transform;
+            while (current != null)
+            {
+                if (!current.gameObject.activeSelf)
+                {
+                    current.gameObject.SetActive(true);
+                }
+
+                current = current.parent;
             }
         }
 

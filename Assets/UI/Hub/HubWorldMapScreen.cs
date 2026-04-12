@@ -12,6 +12,8 @@ namespace DVBARPG.UI.Hub
 {
     public sealed class HubWorldMapScreen : MonoBehaviour
     {
+        private const string LeftWindowId = "hub_teleport";
+
         [Tooltip("Модалка с затемнением и закрытием по клику вне контента. Если задана — показывается вместо простого SetActive(locationsPanel).")]
         [SerializeField] private UiModalLayer locationPickerModal;
         [SerializeField] private GameObject locationsPanel;
@@ -31,6 +33,7 @@ namespace DVBARPG.UI.Hub
         private string _fromMapCode = "act1_hub";
         private readonly List<GameObject> _spawned = new List<GameObject>();
         private CampaignTravelOption _detailOption;
+        private bool _isLocationsVisible;
 
         private void Awake()
         {
@@ -42,6 +45,8 @@ namespace DVBARPG.UI.Hub
                 }
                 locationPickerModal.DismissRequested += OnLocationPickerModalDismissed;
             }
+
+            HudWindowCoordinator.LeftWindowOpened += OnOtherLeftWindowOpened;
         }
 
         private void OnDestroy()
@@ -51,6 +56,22 @@ namespace DVBARPG.UI.Hub
             if (locationPickerModal != null)
             {
                 locationPickerModal.DismissRequested -= OnLocationPickerModalDismissed;
+            }
+
+            HudWindowCoordinator.LeftWindowOpened -= OnOtherLeftWindowOpened;
+        }
+
+        private void OnOtherLeftWindowOpened(string sourceId)
+        {
+            if (string.Equals(sourceId, LeftWindowId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (_isLocationsVisible)
+            {
+                HideLocationDetail();
+                SetLocationsVisible(false);
             }
         }
 
@@ -401,6 +422,17 @@ namespace DVBARPG.UI.Hub
 
         private void SetLocationsVisible(bool isVisible)
         {
+            if (_isLocationsVisible == isVisible)
+            {
+                return;
+            }
+
+            _isLocationsVisible = isVisible;
+            if (isVisible)
+            {
+                HudWindowCoordinator.NotifyLeftWindowOpened(LeftWindowId);
+            }
+
             if (locationPickerModal != null)
             {
                 if (isVisible)

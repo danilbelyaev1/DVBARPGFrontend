@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,6 +15,14 @@ namespace DVBARPG.UI.Common
     /// </summary>
     public sealed class UiModalLayer : MonoBehaviour
     {
+        private sealed class SharedBackdropState
+        {
+            public Image Image;
+            public int VisibleOwners;
+        }
+
+        private static readonly Dictionary<int, SharedBackdropState> SharedBackdropsByCanvas = new Dictionary<int, SharedBackdropState>();
+
         [Tooltip("Main popup content panel. Required for proper layering and outside-click behavior.")]
         [SerializeField] private RectTransform modalContent;
         [Tooltip("Optional close button (X) inside modal content.")]
@@ -28,6 +37,7 @@ namespace DVBARPG.UI.Common
 
         private Canvas _canvas;
         private bool _isVisible;
+        private bool _ownsVisibleBackdrop;
 
         private void Awake()
         {
@@ -41,6 +51,7 @@ namespace DVBARPG.UI.Common
 
         private void OnDestroy()
         {
+            UpdateSharedBackdropVisibility(false);
             if (closeButton != null)
             {
                 closeButton.onClick.RemoveListener(RequestDismiss);
@@ -125,29 +136,34 @@ namespace DVBARPG.UI.Common
                 return;
             }
 
-            if (backdropImage == null)
+            var canvasId = _canvas.GetInstanceID();
+            if (!SharedBackdropsByCanvas.TryGetValue(canvasId, out var shared) || shared == null || shared.Image == null)
             {
                 var go = new GameObject("ModalBackdrop", typeof(RectTransform), typeof(Image), typeof(UiModalBackdropClickForwarder));
                 go.transform.SetParent(_canvas.transform, false);
                 var rt = go.GetComponent<RectTransform>();
                 StretchFull(rt);
-                backdropImage = go.GetComponent<Image>();
-                go.GetComponent<UiModalBackdropClickForwarder>().Init(this);
+                shared = new SharedBackdropState
+                {
+                    Image = go.GetComponent<Image>(),
+                    VisibleOwners = 0
+                };
+                SharedBackdropsByCanvas[canvasId] = shared;
             }
-            else
+
+            backdropImage = shared.Image;
+            var clickForwarder = backdropImage.GetComponent<UiModalBackdropClickForwarder>();
+            if (clickForwarder == null)
             {
-                if (backdropImage.GetComponent<UiModalBackdropClickForwarder>() == null)
-                {
-                    backdropImage.gameObject.AddComponent<UiModalBackdropClickForwarder>().Init(this);
-                }
-
-                if (backdropImage.transform.parent != _canvas.transform)
-                {
-                    backdropImage.transform.SetParent(_canvas.transform, false);
-                }
-                StretchFull(backdropImage.rectTransform);
+                clickForwarder = backdropImage.gameObject.AddComponent<UiModalBackdropClickForwarder>();
             }
+            clickForwarder.Init(this);
 
+            if (backdropImage.transform.parent != _canvas.transform)
+            {
+                backdropImage.transform.SetParent(_canvas.transform, false);
+            }
+            StretchFull(backdropImage.rectTransform);
             // Первый среди детей Canvas — рисуется под остальным UI этого канваса.
             backdropImage.transform.SetAsFirstSibling();
 
@@ -180,11 +196,7 @@ namespace DVBARPG.UI.Common
         private void ApplyVisibility(bool visible)
         {
             _isVisible = visible;
-
-            if (backdropImage != null)
-            {
-                backdropImage.gameObject.SetActive(visible);
-            }
+            UpdateSharedBackdropVisibility(visible);
 
             if (modalContent != null)
             {
@@ -204,6 +216,36 @@ namespace DVBARPG.UI.Common
                 EnsureLayerOrder();
                 BindCloseButton();
             }
+        }
+
+        private void UpdateSharedBackdropVisibility(bool shouldBeVisible)
+        {
+            if (_canvas == null || backdropImage == null)
+            {
+                return;
+            }
+
+            var canvasId = _canvas.GetInstanceID();
+            if (!SharedBackdropsByCanvas.TryGetValue(canvasId, out var shared) || shared == null || shared.Image == null)
+            {
+                return;
+            }
+
+            if (shouldBeVisible)
+            {
+                if (!_ownsVisibleBackdrop)
+                {
+                    shared.VisibleOwners++;
+                    _ownsVisibleBackdrop = true;
+                }
+            }
+            else if (_ownsVisibleBackdrop)
+            {
+                shared.VisibleOwners = Mathf.Max(0, shared.VisibleOwners - 1);
+                _ownsVisibleBackdrop = false;
+            }
+
+            shared.Image.gameObject.SetActive(shared.VisibleOwners > 0);
         }
 
         private void BindCloseButton()

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using DVBARPG.Core.Services;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -11,6 +12,17 @@ namespace DVBARPG.Net.Network
 {
     public sealed class RuntimeMvpService : MonoBehaviour, IRuntimeMvpService
     {
+        private static readonly JsonSerializerSettings SafeJsonSettings = new JsonSerializerSettings
+        {
+            MissingMemberHandling = MissingMemberHandling.Ignore,
+            NullValueHandling = NullValueHandling.Include,
+            ContractResolver = new DefaultContractResolver(),
+            Error = (_, args) =>
+            {
+                args.ErrorContext.Handled = true;
+            }
+        };
+
         [SerializeField] private string backendBaseUrl = "http://127.0.0.1:8000";
         [SerializeField] private string contractVersion = "1.1";
         [SerializeField] private string apiKey = "dev-backend-key";
@@ -71,7 +83,7 @@ namespace DVBARPG.Net.Network
 
             try
             {
-                var response = JsonConvert.DeserializeObject<CampaignResponse>(req.downloadHandler.text);
+                var response = JsonConvert.DeserializeObject<CampaignResponse>(req.downloadHandler.text, SafeJsonSettings);
                 if (response == null)
                 {
                     onDone?.Invoke(new RuntimeCampaignSnapshot { Ok = false, Error = "empty_response" });
@@ -80,8 +92,9 @@ namespace DVBARPG.Net.Network
 
                 onDone?.Invoke(BuildRuntimeCampaignSnapshot(response));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[RuntimeMvpService] FetchCampaign parse exception: {ex.Message}");
                 onDone?.Invoke(new RuntimeCampaignSnapshot { Ok = false, Error = "parse_error" });
             }
         }

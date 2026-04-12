@@ -10,6 +10,8 @@ namespace DVBARPG.UI.Shop
 {
     public sealed class NpcShopScreen : MonoBehaviour
     {
+        private const string LeftWindowId = "hub_shop";
+
         [Tooltip("Пусто = брать хаб текущего акта из SessionState (actN_hub).")]
         [SerializeField] private string mapId = "";
         [SerializeField] private Transform offersRoot;
@@ -17,8 +19,30 @@ namespace DVBARPG.UI.Shop
         [SerializeField] private Text npcTitleText;
         [SerializeField] private Text statusText;
         [SerializeField] private ErrorToast errorToast;
+        [SerializeField] private UiModalLayer modalLayer;
+        [SerializeField] private GameObject panelRoot;
 
         private readonly List<GameObject> _rows = new List<GameObject>();
+
+        private void Awake()
+        {
+            if (modalLayer == null)
+            {
+                modalLayer = GetComponent<UiModalLayer>();
+            }
+
+            if (panelRoot == null)
+            {
+                panelRoot = gameObject;
+            }
+
+            HudWindowCoordinator.LeftWindowOpened += OnOtherLeftWindowOpened;
+        }
+
+        private void OnDestroy()
+        {
+            HudWindowCoordinator.LeftWindowOpened -= OnOtherLeftWindowOpened;
+        }
 
         /// <summary>Открыть магазин выбранного NPC (вызывается из UI хаба, не из Start).</summary>
         public void OpenShop(string npcCode)
@@ -29,8 +53,62 @@ namespace DVBARPG.UI.Shop
                 return;
             }
 
-            StopAllCoroutines();
-            StartCoroutine(CoOpenShop(npcCode.Trim()));
+            var normalizedNpcCode = npcCode.Trim();
+            SetStatus("Loading shop...");
+            HudWindowCoordinator.NotifyLeftWindowOpened(LeftWindowId);
+            if (modalLayer != null)
+            {
+                modalLayer.Show();
+            }
+            else if (panelRoot != null)
+            {
+                panelRoot.SetActive(true);
+            }
+
+            if (gameObject.activeInHierarchy)
+            {
+                StopAllCoroutines();
+                StartCoroutine(CoOpenShop(normalizedNpcCode));
+                return;
+            }
+
+            // Fallback for inactive UI object: run via active root runner.
+            var root = GameRoot.Instance;
+            if (root != null)
+            {
+                root.StartCoroutine(CoOpenShop(normalizedNpcCode));
+                return;
+            }
+
+            SetStatus("Shop init failed.");
+        }
+
+        public void HideShop()
+        {
+            if (modalLayer != null)
+            {
+                modalLayer.Hide();
+                return;
+            }
+
+            if (panelRoot != null)
+            {
+                panelRoot.SetActive(false);
+            }
+        }
+
+        private void OnOtherLeftWindowOpened(string sourceId)
+        {
+            if (string.Equals(sourceId, LeftWindowId, System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var isVisible = modalLayer != null ? modalLayer.IsVisible : (panelRoot != null && panelRoot.activeSelf);
+            if (isVisible)
+            {
+                HideShop();
+            }
         }
 
         private IEnumerator CoOpenShop(string npcCode)
@@ -81,7 +159,9 @@ namespace DVBARPG.UI.Shop
 
             BuildOffers(snapshot.Offers);
             SetStatus("Shop loaded.");
-            yield return CoApplyHubMerchantInteractQuest(npcCode);
+            // Do not block shop UI on quest meta-sync request.
+            StartCoroutine(CoApplyHubMerchantInteractQuest(npcCode));
+            yield break;
         }
 
         /// <summary>
@@ -121,7 +201,18 @@ namespace DVBARPG.UI.Shop
                     snap = r;
                     done = true;
                 });
-            while (!done) yield return null;
+            const float timeoutSeconds = 12f;
+            var startedAt = Time.realtimeSinceStartup;
+            while (!done && Time.realtimeSinceStartup - startedAt < timeoutSeconds)
+            {
+                yield return null;
+            }
+
+            if (!done)
+            {
+                Debug.LogWarning("[NpcShopScreen] Campaign quest batch timeout in shop meta-sync.");
+                yield break;
+            }
 
             if (snap == null || !snap.Ok) yield break;
 
