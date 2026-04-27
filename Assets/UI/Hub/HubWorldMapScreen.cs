@@ -5,8 +5,10 @@ using DVBARPG.Core;
 using DVBARPG.Core.Services;
 using DVBARPG.UI.Common;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
+using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
+using UiButton = UnityEngine.UIElements.Button;
 
 namespace DVBARPG.UI.Hub
 {
@@ -14,50 +16,87 @@ namespace DVBARPG.UI.Hub
     {
         private const string LeftWindowId = "hub_teleport";
 
-        [Tooltip("Модалка с затемнением и закрытием по клику вне контента. Если задана — показывается вместо простого SetActive(locationsPanel).")]
-        [SerializeField] private UiModalLayer locationPickerModal;
-        [SerializeField] private GameObject locationsPanel;
-        [SerializeField] private Transform locationsRoot;
-        [SerializeField] private GameObject locationButtonPrefab;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private ErrorToast errorToast;
         [Tooltip("Если задано — использовать этот код хаба вместо вывода из SessionState (отладка).")]
         [SerializeField] private string hubMapOverride = "";
-
-        [Header("Карточка локации (сведения → переход)")]
-        [SerializeField] private GameObject locationDetailPanel;
-        [SerializeField] private TextMeshProUGUI locationDetailBodyText;
-        [SerializeField] private Button locationDetailConfirmButton;
-        [SerializeField] private Button locationDetailBackButton;
+        [Header("UI Toolkit")]
+        [SerializeField] private UIDocument uiDocument;
 
         private string _fromMapCode = "act1_hub";
-        private readonly List<GameObject> _spawned = new List<GameObject>();
         private CampaignTravelOption _detailOption;
         private bool _isLocationsVisible;
+        private ScrollView _uiLocationsList;
+        private ScrollView _uiAllQuestsList;
+        private ScrollView _uiCurrentQuestsList;
+        private VisualElement _uiPanel;
+        private VisualElement _uiDetailPanel;
+        private Label _uiDetailBody;
+        private Label _uiStatus;
+        private Label _uiCurrentQuestsStatus;
+        private UiButton _uiConfirmButton;
+        private int _lastQuestFingerprint = int.MinValue;
 
         private void Awake()
         {
-            if (locationPickerModal != null)
+            if (!TryInitUiToolkit())
             {
-                if (locationsPanel != null)
-                {
-                    locationPickerModal.Configure(locationsPanel.transform as RectTransform);
-                }
-                locationPickerModal.DismissRequested += OnLocationPickerModalDismissed;
+                Debug.LogError("[HubWorldMapScreen] UIDocument/UXML is required. Canvas fallback removed.", this);
+                enabled = false;
+                return;
             }
 
             HudWindowCoordinator.LeftWindowOpened += OnOtherLeftWindowOpened;
         }
 
-        private void OnDestroy()
+        private bool TryInitUiToolkit()
         {
-            UnbindLocationDetailClickHandlers();
-
-            if (locationPickerModal != null)
+            if (uiDocument == null)
             {
-                locationPickerModal.DismissRequested -= OnLocationPickerModalDismissed;
+                uiDocument = GetComponent<UIDocument>();
             }
 
+            if (uiDocument == null)
+            {
+                return false;
+            }
+
+            var root = uiDocument.rootVisualElement;
+            if (root == null)
+            {
+                return false;
+            }
+
+            _uiPanel = root.Q<VisualElement>("TeleportRoot");
+            var uiContentPanel = root.Q<VisualElement>("TeleportPanel");
+            _uiLocationsList = root.Q<ScrollView>("LocationsList");
+            _uiAllQuestsList = root.Q<ScrollView>("AllQuestsList");
+            _uiCurrentQuestsList = root.Q<ScrollView>("CurrentQuestsList");
+            _uiDetailPanel = root.Q<VisualElement>("LocationDetailPanel");
+            _uiDetailBody = root.Q<Label>("LocationDetailBody");
+            _uiStatus = root.Q<Label>("TeleportStatusLabel");
+            _uiCurrentQuestsStatus = root.Q<Label>("CurrentQuestsStatusLabel");
+            _uiConfirmButton = root.Q<UiButton>("LocationConfirmButton");
+            var uiBackButton = root.Q<UiButton>("LocationBackButton");
+            var closeButton = root.Q<UiButton>("TeleportCloseButton");
+            _uiConfirmButton?.RegisterCallback<ClickEvent>(_ => OnLocationDetailConfirmClicked());
+            uiBackButton?.RegisterCallback<ClickEvent>(_ => OnHideLocationDetailClicked());
+            closeButton?.RegisterCallback<ClickEvent>(_ => CloseTeleportModal());
+            if (_uiPanel != null)
+            {
+                _uiPanel.pickingMode = PickingMode.Ignore;
+            }
+            if (uiContentPanel != null)
+            {
+                uiContentPanel.pickingMode = PickingMode.Position;
+            }
+            SetUiVisible(false);
+            HideLocationDetail();
+            return _uiPanel != null && _uiLocationsList != null && _uiAllQuestsList != null && _uiCurrentQuestsList != null;
+        }
+
+        private void OnDestroy()
+        {
             HudWindowCoordinator.LeftWindowOpened -= OnOtherLeftWindowOpened;
         }
 
@@ -75,18 +114,6 @@ namespace DVBARPG.UI.Hub
             }
         }
 
-        private void OnLocationPickerModalDismissed()
-        {
-            var sessionState = GameRoot.Instance?.Services?.Get<SessionState>();
-            if (sessionState != null)
-            {
-                sessionState.HubTeleportMenuOpen = false;
-            }
-
-            HideLocationDetail();
-            SetLocationsVisible(false);
-        }
-
         private void Start()
         {
             var sessionState = GameRoot.Instance?.Services?.Get<SessionState>();
@@ -94,15 +121,6 @@ namespace DVBARPG.UI.Hub
             {
                 sessionState.HubTeleportMenuOpen = false;
             }
-
-            if (!ValidateLocationDetailUi())
-            {
-                Debug.LogError(
-                    "[HubWorldMapScreen] Заполните в инспекторе: Location Detail Panel, Body Text, Confirm Button, Back Button.",
-                    this);
-            }
-
-            BindLocationDetailClickHandlers();
 
             HideLocationDetail();
             SetLocationsVisible(false);
@@ -176,15 +194,18 @@ namespace DVBARPG.UI.Hub
             Debug.Log($"[HubWorldMapScreen] Campaign loaded: unlocked={campaignState.UnlockedMapCodes?.Length ?? 0}, mapsWithOptions={campaignState.TravelOptionsByMap.Count}");
 
             BuildButtons(campaignState);
+            RenderQuestViews(campaignState.Quests);
             SetStatus("Campaign loaded.");
         }
 
         private void BuildButtons(CampaignState state)
         {
-            foreach (var go in _spawned) if (go != null) Destroy(go);
-            _spawned.Clear();
+            _uiLocationsList?.Clear();
+            if (_uiLocationsList == null)
+            {
+                return;
+            }
 
-            if (locationsRoot == null || locationButtonPrefab == null) return;
             if (!state.TravelOptionsByMap.TryGetValue(_fromMapCode, out var options) || options == null) return;
             Debug.Log($"[HubWorldMapScreen] BuildButtons: fromMap={_fromMapCode}, optionsCount={options.Length}");
 
@@ -196,125 +217,13 @@ namespace DVBARPG.UI.Hub
                     continue;
                 }
 
-                var row = Instantiate(locationButtonPrefab, locationsRoot);
-                _spawned.Add(row);
-                // MapButton.prefab: корневой CanvasGroup с blocksRaycasts=0 пропускает все лучи — onClick никогда не срабатывает.
-                foreach (var cg in row.GetComponentsInChildren<CanvasGroup>(true))
-                {
-                    cg.blocksRaycasts = true;
-                }
-
-                var btn = row.GetComponent<Button>() ?? row.GetComponentInChildren<Button>();
-                foreach (var tmp in row.GetComponentsInChildren<TMP_Text>(true))
-                {
-                    tmp.raycastTarget = false;
-                }
-
-                var labelTmp = row.GetComponentInChildren<TMP_Text>();
                 var cta = option.Teleportable ? "Teleport" : "Portal";
-                var labelText = $"{option.ToMapCode} [{cta}]";
-                if (labelTmp != null)
+                var button = new UiButton(() => OpenLocationDetail(option))
                 {
-                    labelTmp.text = labelText;
-                }
-                if (btn != null)
-                {
-                    btn.interactable = canClick;
-                    var g = btn.targetGraphic;
-                    if (g == null)
-                    {
-                        g = btn.GetComponent<Graphic>() ?? btn.GetComponentInChildren<Graphic>(true);
-                        if (g != null)
-                        {
-                            btn.targetGraphic = g;
-                        }
-                    }
-
-                    if (g != null)
-                    {
-                        g.raycastTarget = true;
-                    }
-                    else
-                    {
-                        Debug.LogError($"[HubWorldMapScreen] У кнопки в префабе строки нет Graphic для raycast: '{btn.name}'.");
-                    }
-
-                    var selected = option;
-                    btn.onClick.RemoveAllListeners();
-                    btn.onClick.AddListener(() =>
-                    {
-                        Debug.Log($"[HubWorldMapScreen] Location button clicked: to={selected.ToMapCode}, teleportable={selected.Teleportable}, canFirstVisit={selected.CanFirstVisit}, travelType={selected.TravelType ?? "<null>"}, button={btn.name}, row={row.name}");
-                        OpenLocationDetail(selected);
-                    });
-                }
-                else
-                {
-                    Debug.LogWarning($"[HubWorldMapScreen] Location row has no Button: to={option.ToMapCode}, row={row.name}");
-                }
-            }
-            Debug.Log($"[HubWorldMapScreen] BuildButtons done: spawned={_spawned.Count}");
-        }
-
-        private bool ValidateLocationDetailUi()
-        {
-            return locationDetailPanel != null
-                   && locationDetailBodyText != null
-                   && locationDetailConfirmButton != null
-                   && locationDetailBackButton != null;
-        }
-
-        private static void PrepareDetailButtonForClicks(Button btn)
-        {
-            if (btn == null) return;
-            btn.interactable = true;
-            foreach (var tmp in btn.GetComponentsInChildren<TMP_Text>(true))
-            {
-                tmp.raycastTarget = false;
-            }
-
-            var g = btn.targetGraphic;
-            if (g == null)
-            {
-                g = btn.GetComponent<Graphic>() ?? btn.GetComponentInChildren<Graphic>(true);
-            }
-
-            if (g != null)
-            {
-                g.raycastTarget = true;
-                btn.targetGraphic = g;
-            }
-        }
-
-        private void BindLocationDetailClickHandlers()
-        {
-            if (!ValidateLocationDetailUi())
-            {
-                return;
-            }
-
-            UnbindLocationDetailClickHandlers();
-
-            foreach (var cg in locationDetailPanel.GetComponentsInChildren<CanvasGroup>(true))
-            {
-                cg.blocksRaycasts = true;
-            }
-
-            PrepareDetailButtonForClicks(locationDetailConfirmButton);
-            PrepareDetailButtonForClicks(locationDetailBackButton);
-            locationDetailConfirmButton.onClick.AddListener(OnLocationDetailConfirmClicked);
-            locationDetailBackButton.onClick.AddListener(OnHideLocationDetailClicked);
-        }
-
-        private void UnbindLocationDetailClickHandlers()
-        {
-            if (locationDetailConfirmButton != null)
-            {
-                locationDetailConfirmButton.onClick.RemoveListener(OnLocationDetailConfirmClicked);
-            }
-
-            if (locationDetailBackButton != null)
-            {
-                locationDetailBackButton.onClick.RemoveListener(OnHideLocationDetailClicked);
+                    text = $"{option.ToMapCode} [{cta}]"
+                };
+                button.AddToClassList("hud-button");
+                _uiLocationsList.Add(button);
             }
         }
 
@@ -327,20 +236,10 @@ namespace DVBARPG.UI.Hub
         {
             if (option == null) return;
 
-            if (!ValidateLocationDetailUi())
-            {
-                Debug.LogError("[HubWorldMapScreen] Карточка локации: не все ссылки заданы в инспекторе.", this);
-                return;
-            }
-
             _detailOption = option;
-            locationDetailBodyText.text = FormatLocationDetail(option);
-
-            locationDetailPanel.SetActive(true);
-            if (locationsRoot != null)
-            {
-                locationsRoot.gameObject.SetActive(false);
-            }
+            if (_uiDetailBody != null) _uiDetailBody.text = FormatLocationDetail(option);
+            if (_uiDetailPanel != null) _uiDetailPanel.style.display = DisplayStyle.Flex;
+            if (_uiLocationsList != null) _uiLocationsList.style.display = DisplayStyle.None;
 
             SetStatus("Проверьте сведения о локации и нажмите «Перейти».");
         }
@@ -348,15 +247,8 @@ namespace DVBARPG.UI.Hub
         private void HideLocationDetail()
         {
             _detailOption = null;
-            if (locationDetailPanel != null)
-            {
-                locationDetailPanel.SetActive(false);
-            }
-
-            if (locationsRoot != null)
-            {
-                locationsRoot.gameObject.SetActive(true);
-            }
+            if (_uiDetailPanel != null) _uiDetailPanel.style.display = DisplayStyle.None;
+            if (_uiLocationsList != null) _uiLocationsList.style.display = DisplayStyle.Flex;
         }
 
         private void OnLocationDetailConfirmClicked()
@@ -417,6 +309,11 @@ namespace DVBARPG.UI.Hub
 
         private void SetStatus(string text)
         {
+            if (_uiStatus != null)
+            {
+                _uiStatus.text = text;
+                return;
+            }
             if (statusText != null) statusText.text = text;
         }
 
@@ -433,37 +330,37 @@ namespace DVBARPG.UI.Hub
                 HudWindowCoordinator.NotifyLeftWindowOpened(LeftWindowId);
             }
 
-            if (locationPickerModal != null)
-            {
-                if (isVisible)
-                {
-                    locationPickerModal.Show();
-                }
-                else
-                {
-                    locationPickerModal.Hide();
-                }
-
-                return;
-            }
-
-            if (locationsPanel != null)
-            {
-                locationsPanel.SetActive(isVisible);
-                return;
-            }
-
-            if (locationsRoot != null)
-            {
-                locationsRoot.gameObject.SetActive(isVisible);
-            }
+            SetUiVisible(isVisible);
         }
 
         private void Update()
         {
             var sessionState = GameRoot.Instance?.Services?.Get<SessionState>();
             if (sessionState == null) return;
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame && _isLocationsVisible)
+            {
+                sessionState.HubTeleportMenuOpen = false;
+            }
             SetLocationsVisible(sessionState.HubTeleportMenuOpen);
+
+            var campaignState = GameRoot.Instance?.Services?.Get<CampaignState>();
+            var quests = campaignState?.Quests;
+            var fingerprint = ComputeQuestFingerprint(quests);
+            if (fingerprint != _lastQuestFingerprint)
+            {
+                RenderQuestViews(quests);
+            }
+        }
+
+        private void CloseTeleportModal()
+        {
+            var sessionState = GameRoot.Instance?.Services?.Get<SessionState>();
+            if (sessionState != null)
+            {
+                sessionState.HubTeleportMenuOpen = false;
+            }
+            HideLocationDetail();
+            SetLocationsVisible(false);
         }
 
         private static bool TryResolveCharacterContext(IProfileService profile, SessionState sessionState, out string characterId, out string seasonId)
@@ -503,6 +400,165 @@ namespace DVBARPG.UI.Hub
             }
 
             return !string.IsNullOrWhiteSpace(characterId) && !string.IsNullOrWhiteSpace(seasonId);
+        }
+
+        private void SetUiVisible(bool isVisible)
+        {
+            if (_uiPanel == null)
+            {
+                return;
+            }
+
+            _uiPanel.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void RenderQuestViews(CampaignQuestInfo[] quests)
+        {
+            _lastQuestFingerprint = ComputeQuestFingerprint(quests);
+            RenderAllQuests(quests);
+            RenderCurrentQuests(quests);
+        }
+
+        private void RenderAllQuests(CampaignQuestInfo[] quests)
+        {
+            _uiAllQuestsList?.Clear();
+            if (_uiAllQuestsList == null)
+            {
+                return;
+            }
+
+            if (quests == null || quests.Length == 0)
+            {
+                _uiAllQuestsList.Add(BuildQuestLabel("No quests available."));
+                return;
+            }
+
+            foreach (var quest in quests)
+            {
+                if (quest == null)
+                {
+                    continue;
+                }
+
+                _uiAllQuestsList.Add(BuildQuestCard(quest, includeStatus: true));
+            }
+        }
+
+        private void RenderCurrentQuests(CampaignQuestInfo[] quests)
+        {
+            _uiCurrentQuestsList?.Clear();
+            if (_uiCurrentQuestsList == null)
+            {
+                return;
+            }
+
+            var activeCount = 0;
+            if (quests != null)
+            {
+                foreach (var quest in quests)
+                {
+                    if (!IsCurrentQuest(quest))
+                    {
+                        continue;
+                    }
+
+                    activeCount++;
+                    _uiCurrentQuestsList.Add(BuildQuestCard(quest, includeStatus: false));
+                }
+            }
+
+            if (activeCount == 0)
+            {
+                _uiCurrentQuestsList.Add(BuildQuestLabel("No active quests."));
+            }
+
+            if (_uiCurrentQuestsStatus != null)
+            {
+                _uiCurrentQuestsStatus.text = activeCount > 0
+                    ? $"Active quests: {activeCount}"
+                    : "No active quests.";
+            }
+        }
+
+        private static VisualElement BuildQuestCard(CampaignQuestInfo quest, bool includeStatus)
+        {
+            var card = new VisualElement();
+            card.AddToClassList("hud-quest-item");
+
+            var title = string.IsNullOrWhiteSpace(quest.Title) ? quest.QuestCode : quest.Title;
+            var titleLabel = new Label(title);
+            titleLabel.AddToClassList("hud-quest-title");
+            card.Add(titleLabel);
+
+            var objective = string.IsNullOrWhiteSpace(quest.ShortObjective) ? "No objective." : quest.ShortObjective;
+            if (includeStatus)
+            {
+                var status = string.IsNullOrWhiteSpace(quest.Status) ? "unknown" : quest.Status;
+                var category = string.IsNullOrWhiteSpace(quest.Category) ? "main" : quest.Category;
+                card.Add(BuildQuestLabel($"[{status}] ({category}) {objective}"));
+            }
+            else
+            {
+                card.Add(BuildQuestLabel(objective));
+            }
+
+            return card;
+        }
+
+        private static Label BuildQuestLabel(string text)
+        {
+            var label = new Label(text);
+            label.AddToClassList("hud-quest-meta");
+            label.style.whiteSpace = WhiteSpace.Normal;
+            return label;
+        }
+
+        private static bool IsCurrentQuest(CampaignQuestInfo quest)
+        {
+            if (quest == null)
+            {
+                return false;
+            }
+
+            var status = quest.Status?.Trim();
+            if (string.IsNullOrEmpty(status))
+            {
+                return true;
+            }
+
+            return !string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase)
+                   && !string.Equals(status, "done", StringComparison.OrdinalIgnoreCase)
+                   && !string.Equals(status, "rewarded", StringComparison.OrdinalIgnoreCase)
+                   && !string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static int ComputeQuestFingerprint(CampaignQuestInfo[] quests)
+        {
+            unchecked
+            {
+                var hash = 17;
+                if (quests == null)
+                {
+                    return hash;
+                }
+
+                hash = hash * 31 + quests.Length;
+                foreach (var quest in quests)
+                {
+                    if (quest == null)
+                    {
+                        hash = hash * 31;
+                        continue;
+                    }
+
+                    hash = hash * 31 + (quest.QuestCode?.GetHashCode() ?? 0);
+                    hash = hash * 31 + (quest.Title?.GetHashCode() ?? 0);
+                    hash = hash * 31 + (quest.Status?.GetHashCode() ?? 0);
+                    hash = hash * 31 + (quest.ShortObjective?.GetHashCode() ?? 0);
+                }
+
+                return hash;
+            }
         }
     }
 }

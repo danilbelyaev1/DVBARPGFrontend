@@ -2,101 +2,179 @@ using System;
 using System.Collections.Generic;
 using DVBARPG.Core;
 using DVBARPG.Core.Services;
-using Newtonsoft.Json;
+using DVBARPG.UI.Common;
 using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.EventSystems;
-#if ENABLE_INPUT_SYSTEM
+using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
-#endif
 
 namespace DVBARPG.UI.Inventory
 {
-    [Serializable]
-    public sealed class EquipmentSlotBinding
-    {
-        [Tooltip("Идентификатор слота (weapon, offhand, helmet, chest, gloves, boots, amulet, ring1, ring2, belt).")]
-        public string slotId = "";
-        [Tooltip("Корень UI ячейки в сцене (расставь сам).")]
-        public RectTransform slotRoot;
-    }
-
     /// <summary>
     /// Экран инвентаря: сумка (ячейки по bagCapacity), слоты экипировки (привязка к объектам в сцене), клик по предмету — панель описания с Экипировать/Снять.
     /// </summary>
     public sealed class InventoryScreen : MonoBehaviour
     {
-        [Header("Контейнеры")]
-        [Tooltip("Родитель для ячеек сумки (сетка/список).")]
-        [SerializeField] private Transform bagContentRoot;
-        [Tooltip("Префаб одной ячейки сумки (пустая или с предметом — один префаб, скрипт заполняет текст/кнопку).")]
-        [SerializeField] private GameObject bagCellPrefab;
+        private const string RightWindowId = "hub_inventory";
+        private static readonly string[] DefaultEquipmentSlots =
+        {
+            "weapon", "offhand", "helmet", "chest", "gloves", "boots", "amulet", "ring1", "ring2", "belt"
+        };
 
-        [Header("Слоты экипировки")]
-        [Tooltip("Привязка слотов к уже расставленным в сцене объектам (шлем, кольцо и т.д.).")]
-        [SerializeField] private List<EquipmentSlotBinding> equipmentSlotBindings = new List<EquipmentSlotBinding>();
-
-        [Header("Панель описания предмета")]
-        [SerializeField] private ItemDetailPanel itemDetailPanel;
-
-        [Header("Кнопки")]
-        [SerializeField] private Button refreshButton;
-        [SerializeField] private Button closeButton;
         [Tooltip("Если true, кнопка закрытия только скрывает панель (режим оверлея в Run). Иначе — переход в CharacterSelect.")]
         [SerializeField] private bool closeAsOverlay;
         [Tooltip("При closeAsOverlay — какой объект скрыть (обычно корень панели инвентаря).")]
         [SerializeField] private GameObject panelToHide;
 
-        [Header("Текст")]
-        [SerializeField] private Text statusText;
-
         [Header("Статы персонажа")]
         [Tooltip("Опционально: блок статов (скорость и т.д.). Обновляется после экипировки/снятия.")]
         [SerializeField] private CharacterStatsDisplay characterStatsDisplay;
+        [Header("UI Toolkit")]
+        [SerializeField] private UIDocument uiDocument;
 
         private IInventoryService _inventory;
         private IProfileService _profile;
-        private readonly List<GameObject> _spawnedBagCells = new List<GameObject>();
         private InventoryResult _lastResult;
+        private ScrollView _uiBagList;
+        private VisualElement _uiEquipmentList;
+        private Label _uiStatus;
+        private VisualElement _uiRoot;
+        private VisualElement _uiPanel;
+        private VisualElement _uiItemDetailPanel;
+        private Label _uiItemTitle;
+        private Label _uiItemDescription;
+        private UnityEngine.UIElements.Button _uiItemActionButton;
+        private InventoryItemDto _uiSelectedItem;
+        private bool _uiSelectedIsEquipped;
+        private string _uiSelectedSlot;
 
         private void Awake()
         {
-            if (refreshButton != null) refreshButton.onClick.AddListener(Refresh);
-            if (closeButton != null) closeButton.onClick.AddListener(OnClose);
-            if (itemDetailPanel != null) itemDetailPanel.SetInventoryScreen(this);
-            EnsureSingleEventSystem();
-        }
-
-        private static Vector2 GetPointerScreenPosition()
-        {
-#if ENABLE_INPUT_SYSTEM
-            var mouse = Mouse.current;
-            if (mouse != null) return mouse.position.ReadValue();
-            return Vector2.zero;
-#else
-            return Input.mousePosition;
-#endif
-        }
-
-        private void EnsureSingleEventSystem()
-        {
-            var eventSystems = FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
-            if (eventSystems.Length <= 1) return;
-            var ourScene = gameObject.scene;
-            for (int i = 0; i < eventSystems.Length; i++)
+            if (!TryInitUiToolkit())
             {
-                if (eventSystems[i].gameObject.scene == ourScene)
-                {
-                    eventSystems[i].gameObject.SetActive(false);
-                }
+                Debug.LogError("[InventoryScreen] UIDocument/UXML is required. Canvas fallback removed.", this);
+                enabled = false;
+                return;
             }
+
+            HudWindowCoordinator.WindowOpened += OnOtherWindowOpened;
+            SetUiVisible(false);
+        }
+
+        private bool TryInitUiToolkit()
+        {
+            if (uiDocument == null)
+            {
+                uiDocument = GetComponent<UIDocument>();
+            }
+
+            if (uiDocument == null)
+            {
+                return false;
+            }
+
+            var root = uiDocument.rootVisualElement;
+            if (root == null)
+            {
+                return false;
+            }
+
+            _uiPanel = root.Q<VisualElement>("InventoryPanel");
+            _uiRoot = root.Q<VisualElement>("InventoryRoot");
+            _uiBagList = root.Q<ScrollView>("BagList");
+            _uiEquipmentList = root.Q<VisualElement>("EquipmentList");
+            _uiStatus = root.Q<Label>("InventoryStatusLabel");
+            _uiItemDetailPanel = root.Q<VisualElement>("ItemDetailPanel");
+            _uiItemTitle = root.Q<Label>("ItemTitleLabel");
+            _uiItemDescription = root.Q<Label>("ItemDescriptionLabel");
+            _uiItemActionButton = root.Q<UnityEngine.UIElements.Button>("ItemActionButton");
+            var refresh = root.Q<UnityEngine.UIElements.Button>("InventoryRefreshButton");
+            var close = root.Q<UnityEngine.UIElements.Button>("InventoryCloseButton");
+            var detailClose = root.Q<UnityEngine.UIElements.Button>("ItemCloseButton");
+            refresh?.RegisterCallback<ClickEvent>(_ => Refresh());
+            close?.RegisterCallback<ClickEvent>(_ => OnClose());
+            detailClose?.RegisterCallback<ClickEvent>(_ => HideUiItemDetail());
+            _uiItemActionButton?.RegisterCallback<ClickEvent>(_ => OnUiItemAction());
+            if (_uiRoot != null)
+            {
+                _uiRoot.pickingMode = PickingMode.Ignore;
+            }
+            if (_uiPanel != null)
+            {
+                _uiPanel.pickingMode = PickingMode.Position;
+            }
+            HideUiItemDetail();
+            return _uiRoot != null && _uiPanel != null && _uiBagList != null && _uiEquipmentList != null && _uiStatus != null;
+        }
+
+        private void OnDestroy()
+        {
+            HudWindowCoordinator.WindowOpened -= OnOtherWindowOpened;
         }
 
         private void OnEnable()
         {
             _inventory = GameRoot.Instance?.Services?.Get<IInventoryService>();
             _profile = GameRoot.Instance?.Services?.Get<IProfileService>();
+        }
+
+        private void Start()
+        {
+            SetUiVisible(false);
+        }
+
+        private void Update()
+        {
+            if (Keyboard.current == null) return;
+            if (!Keyboard.current.escapeKey.wasPressedThisFrame) return;
+            if (!IsVisible()) return;
+            HideInventory();
+        }
+
+        public void ToggleVisibility()
+        {
+            if (IsVisible())
+            {
+                HideInventory();
+                return;
+            }
+
+            ShowInventory();
+        }
+
+        public void ShowInventory()
+        {
+            HudWindowCoordinator.NotifyWindowOpened(HudWindowGroup.Right, RightWindowId);
+            SetUiVisible(true);
             Refresh();
+        }
+
+        public void HideInventory()
+        {
+            SetUiVisible(false);
+            HideUiItemDetail();
+        }
+
+        private bool IsVisible()
+        {
+            return _uiRoot != null && _uiRoot.style.display != DisplayStyle.None;
+        }
+
+        private void OnOtherWindowOpened(HudWindowGroup group, string sourceId)
+        {
+            if (group != HudWindowGroup.Right)
+            {
+                return;
+            }
+
+            if (string.Equals(sourceId, RightWindowId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (IsVisible())
+            {
+                HideInventory();
+            }
         }
 
         private void Refresh()
@@ -122,30 +200,20 @@ namespace DVBARPG.UI.Inventory
         private void OnInventoryLoaded(InventoryResult result)
         {
             _lastResult = result;
-            ClearSpawnedBag();
-            itemDetailPanel?.Hide();
+            HideUiItemDetail();
 
-            var fullResultJson = result != null
-                ? JsonConvert.SerializeObject(new
-                {
-                    result.Ok,
-                    result.Error,
-                    result.BagCapacity,
-                    result.StashCapacity,
-                    result.BagUsage,
-                    result.StashUsage,
-                    EquipmentSlots = result.EquipmentSlots ?? Array.Empty<string>(),
-                    ItemsCount = result.Items?.Length ?? 0,
-                    Items = result.Items ?? Array.Empty<InventoryItemDto>(),
-                }, Formatting.Indented)
-                : "null";
-            SetStatus(fullResultJson);
+            if (result == null)
+            {
+                SetStatus("Нет данных инвентаря.");
+                return;
+            }
 
             var hasData = result != null && string.IsNullOrEmpty(result.Error)
                 && (result.EquipmentSlots != null || result.Items != null || result.BagCapacity > 0);
             var success = result != null && (result.Ok || hasData);
             if (!success)
             {
+                SetStatus(result.Error ?? "Ошибка загрузки инвентаря.");
                 return;
             }
 
@@ -153,24 +221,64 @@ namespace DVBARPG.UI.Inventory
 
             var items = result.Items ?? Array.Empty<InventoryItemDto>();
             var equipmentSlots = result.EquipmentSlots ?? Array.Empty<string>();
+            SetStatus($"Bag: {result.BagUsage}/{capacity} | Equipped: {CountEquipped(items)}");
 
-            if (bagContentRoot != null && bagCellPrefab != null)
+            BuildUiToolkitInventory(capacity, items, equipmentSlots);
+        }
+
+        private static int CountEquipped(InventoryItemDto[] items)
+        {
+            if (items == null) return 0;
+            var count = 0;
+            foreach (var item in items)
             {
-                var bagItemsByIndex = BuildBagSlotIndex(items);
-                for (int i = 0; i < capacity; i++)
+                if (item == null) continue;
+                if (!string.IsNullOrWhiteSpace(item.InventorySlot))
                 {
-                    var cell = Instantiate(bagCellPrefab, bagContentRoot);
-                    _spawnedBagCells.Add(cell);
-                    var item = bagItemsByIndex.TryGetValue(i, out var it) ? it : null;
-                    BindBagCell(cell, i, item);
+                    count++;
                 }
             }
+            return count;
+        }
 
-            foreach (var binding in equipmentSlotBindings ?? new List<EquipmentSlotBinding>())
+        private void BuildUiToolkitInventory(int capacity, InventoryItemDto[] items, string[] equipmentSlots)
+        {
+            if (_uiBagList == null || _uiEquipmentList == null)
             {
-                if (binding?.slotRoot == null || string.IsNullOrEmpty(binding.slotId)) continue;
-                var slotItem = FindItemInSlot(items, binding.slotId);
-                BindEquipmentSlotRoot(binding.slotRoot, binding.slotId, slotItem);
+                return;
+            }
+
+            _uiBagList.Clear();
+            _uiEquipmentList.Clear();
+            var bagItemsByIndex = BuildBagSlotIndex(items);
+            for (var i = 0; i < capacity; i++)
+            {
+                var item = bagItemsByIndex.TryGetValue(i, out var found) ? found : null;
+                var button = new UnityEngine.UIElements.Button(() => ShowUiItemDetail(item, false, null))
+                {
+                    text = item != null
+                        ? $"{(item.Definition?.Name ?? item.Definition?.Code ?? item.InstanceId)} x{item.StackCount}"
+                        : $"[{i}] Empty"
+                };
+                button.SetEnabled(item != null);
+                button.AddToClassList("hud-button");
+                _uiBagList.Add(button);
+            }
+
+            var slotsToRender = equipmentSlots.Length > 0 ? equipmentSlots : DefaultEquipmentSlots;
+            foreach (var slot in slotsToRender)
+            {
+                var slotItem = FindItemInSlot(items, slot);
+                var selectedSlot = slot;
+                var button = new UnityEngine.UIElements.Button(() => ShowUiItemDetail(slotItem, true, selectedSlot))
+                {
+                    text = slotItem != null
+                        ? $"{SlotLabel(selectedSlot)}: {slotItem.Definition?.Name ?? slotItem.Definition?.Code ?? slotItem.InstanceId}"
+                        : $"{SlotLabel(selectedSlot)}: —"
+                };
+                button.SetEnabled(slotItem != null);
+                button.AddToClassList("hud-button");
+                _uiEquipmentList.Add(button);
             }
         }
 
@@ -202,32 +310,6 @@ namespace DVBARPG.UI.Inventory
             return dict;
         }
 
-        private void BindBagCell(GameObject cell, int slotIndex, InventoryItemDto item)
-        {
-            var label = cell.GetComponentInChildren<Text>();
-            if (label != null)
-                label.text = item != null ? (item.Definition != null ? $"{item.Definition.Name ?? item.Definition.Code} x{item.StackCount}" : item.InstanceId) : "";
-
-            var btn = GetOrAddButton(cell);
-            if (btn != null)
-            {
-                btn.onClick.RemoveAllListeners();
-                if (item != null)
-                {
-                    btn.onClick.AddListener(() =>
-                    {
-                        Vector2? pos = null;
-                        var screenPos = GetPointerScreenPosition();
-                        var rt = btn.GetComponent<RectTransform>();
-                        if (rt != null && RectTransformUtility.RectangleContainsScreenPoint(rt, screenPos, null))
-                            pos = new Vector2(screenPos.x, screenPos.y);
-                        itemDetailPanel?.Show(item, false, null, pos);
-                    });
-                }
-                btn.interactable = item != null;
-            }
-        }
-
         private static InventoryItemDto FindItemInSlot(InventoryItemDto[] items, string slot)
         {
             if (items == null) return null;
@@ -239,51 +321,84 @@ namespace DVBARPG.UI.Inventory
             return null;
         }
 
-        private void BindEquipmentSlotRoot(RectTransform root, string slot, InventoryItemDto item)
+        private void ShowUiItemDetail(InventoryItemDto item, bool isEquipped, string slot)
         {
-            var label = root.GetComponentInChildren<Text>();
-            if (label != null)
-                label.text = item != null ? (item.Definition?.Name ?? item.Definition?.Code ?? item.InstanceId) : $"[{slot}] —";
-
-            var unequipBtn = GetOrAddButton(root != null ? root.gameObject : null);
-            if (unequipBtn != null)
+            if (item == null || _uiItemDetailPanel == null)
             {
-                unequipBtn.onClick.RemoveAllListeners();
-                if (item != null)
-                {
-                    unequipBtn.onClick.AddListener(() =>
-                    {
-                        Vector2? pos = null;
-                        var screenPos = GetPointerScreenPosition();
-                        if (root != null && RectTransformUtility.RectangleContainsScreenPoint(root, screenPos, null))
-                            pos = new Vector2(screenPos.x, screenPos.y);
-                        itemDetailPanel?.Show(item, true, slot, pos);
-                    });
-                }
-                else
-                {
-                    unequipBtn.onClick.AddListener(() => { });
-                }
-                unequipBtn.interactable = item != null;
+                return;
             }
+
+            _uiSelectedItem = item;
+            _uiSelectedIsEquipped = isEquipped;
+            _uiSelectedSlot = slot;
+            if (_uiItemTitle != null)
+            {
+                _uiItemTitle.text = item.Definition?.Name ?? item.Definition?.Code ?? item.InstanceId;
+            }
+
+            if (_uiItemDescription != null)
+            {
+                _uiItemDescription.text = $"{item.Rarity} | ilvl {item.ItemLevel} | stack {item.StackCount}";
+            }
+
+            if (_uiItemActionButton != null)
+            {
+                _uiItemActionButton.text = isEquipped ? "Unequip" : "Equip";
+            }
+
+            _uiItemDetailPanel.style.display = DisplayStyle.Flex;
         }
 
-        /// <summary>
-        /// Находит Button в объекте или добавляет его на первый Graphic с raycastTarget, чтобы клик по ячейке работал.
-        /// </summary>
-        private static Button GetOrAddButton(GameObject go)
+        private void HideUiItemDetail()
         {
-            if (go == null) return null;
-            var btn = go.GetComponentInChildren<Button>(true);
-            if (btn != null) return btn;
-            var graphic = go.GetComponentInChildren<Graphic>(true);
-            if (graphic != null && graphic.raycastTarget)
+            if (_uiItemDetailPanel == null)
             {
-                btn = graphic.gameObject.GetComponent<Button>();
-                if (btn == null) btn = graphic.gameObject.AddComponent<Button>();
-                return btn;
+                return;
             }
-            return null;
+
+            _uiSelectedItem = null;
+            _uiSelectedSlot = null;
+            _uiItemDetailPanel.style.display = DisplayStyle.None;
+        }
+
+        private void OnUiItemAction()
+        {
+            if (_uiSelectedItem == null)
+            {
+                return;
+            }
+
+            if (_uiSelectedIsEquipped && !string.IsNullOrWhiteSpace(_uiSelectedSlot))
+            {
+                UnequipSlot(_uiSelectedSlot);
+                HideUiItemDetail();
+                return;
+            }
+
+            var allowedSlots = _uiSelectedItem.Definition?.AllowedSlots;
+            if (allowedSlots != null && allowedSlots.Length > 0)
+            {
+                Equip(_uiSelectedItem.InstanceId, allowedSlots[0]);
+            }
+            HideUiItemDetail();
+        }
+
+        private static string SlotLabel(string slot)
+        {
+            return slot switch
+            {
+                "weapon" => "Weapon",
+                "offhand" => "Offhand",
+                "helmet" => "Helmet",
+                "chest" => "Chest",
+                "gloves" => "Gloves",
+                "boots" => "Boots",
+                "amulet" => "Amulet",
+                "ring1" => "Ring 1",
+                "ring2" => "Ring 2",
+                "belt" => "Belt",
+                _ => string.IsNullOrWhiteSpace(slot) ? "Slot" : slot
+            };
         }
 
         public void Equip(string instanceId, string slot)
@@ -325,18 +440,9 @@ namespace DVBARPG.UI.Inventory
             });
         }
 
-        private void ClearSpawnedBag()
-        {
-            foreach (var go in _spawnedBagCells)
-            {
-                if (go != null) Destroy(go);
-            }
-            _spawnedBagCells.Clear();
-        }
-
         private void SetStatus(string message)
         {
-            if (statusText != null) statusText.text = message;
+            _uiStatus.text = message;
         }
 
         private void OnClose()
@@ -346,12 +452,26 @@ namespace DVBARPG.UI.Inventory
                 InventorySceneHelper.Close();
                 return;
             }
-            if (closeAsOverlay && panelToHide != null)
+            if (closeAsOverlay)
             {
-                panelToHide.SetActive(false);
+                HideInventory();
                 return;
             }
             UnityEngine.SceneManagement.SceneManager.LoadScene("CharacterSelect");
+        }
+
+        private void SetUiVisible(bool isVisible)
+        {
+            if (_uiRoot == null)
+            {
+                return;
+            }
+
+            _uiRoot.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!isVisible && panelToHide != null)
+            {
+                panelToHide.SetActive(false);
+            }
         }
     }
 }

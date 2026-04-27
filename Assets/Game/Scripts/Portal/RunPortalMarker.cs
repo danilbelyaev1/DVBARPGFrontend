@@ -61,5 +61,23 @@ namespace DVBARPG.Game.Portal
                 returnController.ReturnToHubViaPortal();
             }
         }
+
+        public float ActivationRadius => activationRadius;
+
+        public void TryInteractByAutoMove()
+        {
+            if (_used || Time.time < _canUseAt)
+            {
+                return;
+            }
+
+            var player = NetworkPlayerReplicator.PlayerTransform;
+            if (player == null || Vector3.Distance(player.position, transform.position) > activationRadius)
+            {
+                return;
+            }
+
+            TryReturnToHub();
+        }
     }
 }

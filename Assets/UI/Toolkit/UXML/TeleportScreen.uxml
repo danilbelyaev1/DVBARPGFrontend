@@ -1,0 +1,29 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="../Styles/HudPanels.uss" />
+    <ui:VisualElement name="TeleportRoot" class="hud-root hud-root-left">
+        <ui:VisualElement name="TeleportPanel" class="hud-panel">
+            <ui:Label text="Teleport" class="hud-title" />
+            <ui:ScrollView name="LocationsList" class="hud-list" />
+            <ui:VisualElement name="LocationDetailPanel" style="display: none;">
+                <ui:Label name="LocationDetailBody" />
+                <ui:VisualElement class="hud-split">
+                    <ui:Button name="LocationBackButton" text="Back" class="hud-button hud-column" />
+                    <ui:Button name="LocationConfirmButton" text="Travel" class="hud-button hud-column" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="hud-quest-section">
+                <ui:Label text="All Quests" class="hud-subtitle" />
+                <ui:ScrollView name="AllQuestsList" class="hud-list hud-quest-list" />
+            </ui:VisualElement>
+            <ui:Button name="TeleportCloseButton" text="Close" class="hud-button" />
+            <ui:Label name="TeleportStatusLabel" text="..." class="hud-status" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="QuestTrackerRoot" class="hud-root hud-root-right">
+        <ui:VisualElement name="QuestTrackerPanel" class="hud-panel hud-compact-panel">
+            <ui:Label text="Current Quests" class="hud-title" />
+            <ui:ScrollView name="CurrentQuestsList" class="hud-list hud-quest-list" />
+            <ui:Label name="CurrentQuestsStatusLabel" text="No active quests." class="hud-status" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

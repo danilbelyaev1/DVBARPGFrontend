@@ -9,21 +9,11 @@ using UnityEngine.SceneManagement;
 namespace DVBARPG.Game.Hub
 {
     /// <summary>
-    /// Загружает список NPC с бэка и спавнит визуалы в хабе. Позиция: объект на сцене с именем = <c>code</c>, иначе <see cref="fallbackSpawns"/>.
+    /// Загружает список NPC с бэка и привязывает данные к уже существующим объектам NPC на сцене.
+    /// Объект должен иметь имя, совпадающее с <c>NpcInfo.Code</c>.
     /// </summary>
     public sealed class HubNpcSpawnController : MonoBehaviour
     {
-        [Tooltip("Родитель для инстансов (пустой объект в сцене).")]
-        [SerializeField] private Transform spawnRoot;
-
-        [Tooltip("Визуал NPC (например HumanMale_Character_FREE). Должен иметь коллайдер или будет добавлен капсула.")]
-        [SerializeField] private GameObject npcVisualPrefab;
-
-        [SerializeField] private HubNpcFallbackSpawn[] fallbackSpawns =
-        {
-            new HubNpcFallbackSpawn { npcCode = "npc_hub_merchant", localPosition = new Vector3(4f, 0f, 6f), yRotationDegrees = 180f },
-        };
-
         private void Start()
         {
             StripLegacyHudShopButton();
@@ -76,8 +66,6 @@ namespace DVBARPG.Game.Hub
             }
 
             shopState.Npcs = snap.Npcs;
-
-            var root = spawnRoot != null ? spawnRoot : transform;
             foreach (var npc in snap.Npcs)
             {
                 if (npc == null || string.IsNullOrWhiteSpace(npc.Code))
@@ -85,70 +73,44 @@ namespace DVBARPG.Game.Hub
                     continue;
                 }
 
-                SpawnOne(npc, root);
+                BindExistingNpc(npc);
             }
         }
 
-        private void SpawnOne(NpcInfo npc, Transform root)
+        private static void BindExistingNpc(NpcInfo npc)
         {
-            if (npcVisualPrefab == null)
+            if (!TryFindSceneNpcAnchor(npc.Code, out var anchor, out var duplicateCount))
             {
-                Debug.LogWarning("[HubNpcSpawnController] npcVisualPrefab не назначен.");
+                Debug.LogWarning($"[HubNpcSpawnController] NPC anchor '{npc.Code}' not found in scene. Skipped.");
                 return;
             }
 
-            ResolveTransform(npc, root, out var pos, out var rot);
-            var go = Instantiate(npcVisualPrefab, pos, rot, root);
-            go.name = $"RuntimeNpc_{npc.Code}";
+            if (duplicateCount > 1)
+            {
+                Debug.LogWarning($"[HubNpcSpawnController] Multiple NPC anchors '{npc.Code}' found ({duplicateCount}), binding first.");
+            }
 
-            var actor = go.GetComponent<HubNpcActor>();
+            var actor = anchor.GetComponent<HubNpcActor>();
             if (actor == null)
             {
-                actor = go.AddComponent<HubNpcActor>();
+                actor = anchor.gameObject.AddComponent<HubNpcActor>();
             }
 
             actor.Bind(npc);
 
-            if (go.GetComponentInChildren<Collider>() == null)
+            if (anchor.GetComponentInChildren<Collider>() == null)
             {
-                var cap = go.AddComponent<CapsuleCollider>();
+                var cap = anchor.gameObject.AddComponent<CapsuleCollider>();
                 cap.height = 2f;
                 cap.radius = 0.35f;
                 cap.center = new Vector3(0f, 1f, 0f);
             }
         }
 
-        private void ResolveTransform(NpcInfo npc, Transform root, out Vector3 position, out Quaternion rotation)
+        private static bool TryFindSceneNpcAnchor(string npcCode, out Transform anchor, out int count)
         {
-            if (TryFindSceneNpcAnchor(npc.Code, out position, out var yaw))
-            {
-                rotation = Quaternion.Euler(0f, yaw, 0f);
-                return;
-            }
-
-            foreach (var fb in fallbackSpawns)
-            {
-                if (fb == null || string.IsNullOrWhiteSpace(fb.npcCode))
-                {
-                    continue;
-                }
-
-                if (string.Equals(fb.npcCode.Trim(), npc.Code.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    position = root.TransformPoint(fb.localPosition);
-                    rotation = Quaternion.Euler(0f, fb.yRotationDegrees, 0f);
-                    return;
-                }
-            }
-
-            position = root.position + new Vector3(2f, 0f, 2f);
-            rotation = Quaternion.identity;
-        }
-
-        private static bool TryFindSceneNpcAnchor(string npcCode, out Vector3 worldPosition, out float yawDegrees)
-        {
-            worldPosition = default;
-            yawDegrees = 0f;
+            anchor = null;
+            count = 0;
             if (string.IsNullOrWhiteSpace(npcCode))
             {
                 return false;
@@ -161,8 +123,6 @@ namespace DVBARPG.Game.Hub
             }
 
             var code = npcCode.Trim();
-            Transform found = null;
-            var count = 0;
             foreach (var rootGo in scene.GetRootGameObjects())
             {
                 foreach (var t in rootGo.GetComponentsInChildren<Transform>(true))
@@ -170,32 +130,16 @@ namespace DVBARPG.Game.Hub
                     if (string.Equals(t.name, code, StringComparison.OrdinalIgnoreCase))
                     {
                         count++;
-                        found ??= t;
+                        anchor ??= t;
                     }
                 }
             }
 
-            if (found == null)
+            if (anchor == null)
             {
                 return false;
             }
-
-            if (count > 1)
-            {
-                Debug.LogWarning($"[HubNpcSpawnController] Несколько объектов «{code}» на сцене ({count}), используется первый.");
-            }
-
-            worldPosition = found.position;
-            yawDegrees = found.eulerAngles.y;
             return true;
         }
-    }
-
-    [System.Serializable]
-    public sealed class HubNpcFallbackSpawn
-    {
-        public string npcCode;
-        public Vector3 localPosition;
-        public float yRotationDegrees;
     }
 }

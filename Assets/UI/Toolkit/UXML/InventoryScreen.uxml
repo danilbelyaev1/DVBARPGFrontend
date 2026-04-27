@@ -1,0 +1,31 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="../Styles/HudPanels.uss" />
+    <ui:VisualElement name="InventoryRoot" class="hud-root hud-root-right">
+        <ui:VisualElement name="InventoryPanel" class="hud-panel">
+            <ui:Label text="Inventory" class="hud-title" />
+            <ui:VisualElement class="hud-split">
+                <ui:VisualElement class="hud-column">
+                    <ui:Label text="Bag" />
+                    <ui:ScrollView name="BagList" class="hud-list" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-column">
+                    <ui:Label text="Equipment" />
+                    <ui:VisualElement name="EquipmentList" class="hud-list" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="ItemDetailPanel" style="display: none;">
+                <ui:Label name="ItemTitleLabel" />
+                <ui:Label name="ItemDescriptionLabel" />
+                <ui:VisualElement class="hud-split">
+                    <ui:Button name="ItemActionButton" text="Action" class="hud-button hud-column" />
+                    <ui:Button name="ItemCloseButton" text="Close" class="hud-button hud-column" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="hud-split">
+                <ui:Button name="InventoryRefreshButton" text="Refresh" class="hud-button hud-column" />
+                <ui:Button name="InventoryCloseButton" text="Close" class="hud-button hud-column" />
+            </ui:VisualElement>
+            <ui:Label name="InventoryStatusLabel" text="..." class="hud-status" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

@@ -5,7 +5,8 @@ using DVBARPG.Core.Services;
 using DVBARPG.UI.Common;
 using DVBARPG.UI.Shop;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
 
 namespace DVBARPG.UI.Hub
 {
@@ -16,58 +17,77 @@ namespace DVBARPG.UI.Hub
     {
         private const string LeftWindowId = "hub_npc_menu";
 
-        [SerializeField] private GameObject panelRoot;
-        [SerializeField] private Text titleText;
-        [SerializeField] private Transform buttonsParent;
-        [SerializeField] private Button closeButton;
         [SerializeField] private NpcShopScreen shopScreen;
         [SerializeField] private GameObject shopPanelRoot;
         [SerializeField] private ErrorToast errorToast;
+        [Header("UI Toolkit")]
+        [SerializeField] private UIDocument uiDocument;
 
         private NpcInfo _current;
-        private Font _font;
         private SessionState _session;
+        private VisualElement _uiPanel;
+        private Label _uiTitle;
+        private VisualElement _uiActionsRoot;
 
         private void Awake()
         {
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (closeButton != null)
+            if (!TryInitUiToolkit())
             {
-                closeButton.onClick.AddListener(Hide);
-            }
-
-            if (buttonsParent != null && buttonsParent.GetComponent<VerticalLayoutGroup>() == null)
-            {
-                var v = buttonsParent.gameObject.AddComponent<VerticalLayoutGroup>();
-                v.childAlignment = TextAnchor.UpperCenter;
-                v.spacing = 10f;
-                v.padding = new RectOffset(12, 12, 12, 12);
-                v.childControlHeight = true;
-                v.childControlWidth = true;
-                v.childForceExpandWidth = true;
-            }
-
-            if (panelRoot != null)
-            {
-                panelRoot.SetActive(false);
+                Debug.LogError("[NpcInteractionMenu] UIDocument/UXML is required. Canvas fallback removed.", this);
+                enabled = false;
+                return;
             }
 
             HudWindowCoordinator.LeftWindowOpened += OnOtherLeftWindowOpened;
         }
 
-        private void OnDestroy()
+        private bool TryInitUiToolkit()
         {
-            if (closeButton != null)
+            if (uiDocument == null)
             {
-                closeButton.onClick.RemoveListener(Hide);
+                uiDocument = GetComponent<UIDocument>();
             }
 
+            if (uiDocument == null)
+            {
+                return false;
+            }
+
+            var root = uiDocument.rootVisualElement;
+            if (root == null)
+            {
+                return false;
+            }
+
+            _uiPanel = root.Q<VisualElement>("NpcMenuRoot");
+            var uiContentPanel = root.Q<VisualElement>("NpcMenuPanel");
+            _uiTitle = root.Q<Label>("NpcMenuTitleLabel");
+            _uiActionsRoot = root.Q<VisualElement>("NpcActionsList");
+            var close = root.Q<UnityEngine.UIElements.Button>("NpcCloseButton");
+            if (close != null)
+            {
+                close.clicked += Hide;
+            }
+            if (_uiPanel != null)
+            {
+                _uiPanel.pickingMode = PickingMode.Ignore;
+            }
+            if (uiContentPanel != null)
+            {
+                uiContentPanel.pickingMode = PickingMode.Position;
+            }
+            SetUiVisible(false);
+            return _uiPanel != null && _uiActionsRoot != null && _uiTitle != null;
+        }
+
+        private void OnDestroy()
+        {
             HudWindowCoordinator.LeftWindowOpened -= OnOtherLeftWindowOpened;
         }
 
         public void Open(NpcInfo npc)
         {
-            if (npc == null || panelRoot == null || buttonsParent == null)
+            if (npc == null)
             {
                 return;
             }
@@ -79,23 +99,17 @@ namespace DVBARPG.UI.Hub
                 _session.HubNpcDialogOpen = true;
             }
 
-            if (titleText != null)
-            {
-                titleText.text = string.IsNullOrWhiteSpace(npc.Name) ? npc.Code : npc.Name;
-            }
+            _uiTitle.text = string.IsNullOrWhiteSpace(npc.Name) ? npc.Code : npc.Name;
 
             ClearButtons();
             BuildActions(npc);
             HudWindowCoordinator.NotifyLeftWindowOpened(LeftWindowId);
-            panelRoot.SetActive(true);
+            SetUiVisible(true);
         }
 
         public void Hide()
         {
-            if (panelRoot != null)
-            {
-                panelRoot.SetActive(false);
-            }
+            SetUiVisible(false);
 
             if (_session != null)
             {
@@ -112,10 +126,19 @@ namespace DVBARPG.UI.Hub
                 return;
             }
 
-            if (panelRoot != null && panelRoot.activeSelf)
+            var isVisible = _uiPanel != null && _uiPanel.style.display != DisplayStyle.None;
+            if (isVisible)
             {
                 Hide();
             }
+        }
+
+        private void Update()
+        {
+            if (Keyboard.current == null) return;
+            if (!Keyboard.current.escapeKey.wasPressedThisFrame) return;
+            if (_uiPanel == null || _uiPanel.style.display == DisplayStyle.None) return;
+            Hide();
         }
 
         private void BuildActions(NpcInfo npc)
@@ -151,7 +174,7 @@ namespace DVBARPG.UI.Hub
                 }
             }
 
-            if (buttonsParent.childCount == 0)
+            if (_uiActionsRoot == null || _uiActionsRoot.childCount == 0)
             {
                 AddButton("Закрыть", Hide);
             }
@@ -249,42 +272,27 @@ namespace DVBARPG.UI.Hub
 
         private void ClearButtons()
         {
-            for (var i = buttonsParent.childCount - 1; i >= 0; i--)
-            {
-                Destroy(buttonsParent.GetChild(i).gameObject);
-            }
+            _uiActionsRoot?.Clear();
         }
 
         private void AddButton(string label, UnityEngine.Events.UnityAction onClick)
         {
-            var go = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(buttonsParent, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(360f, 48f);
+            var btn = new UnityEngine.UIElements.Button(() => onClick?.Invoke())
+            {
+                text = label
+            };
+            btn.AddToClassList("hud-button");
+            _uiActionsRoot.Add(btn);
+        }
 
-            var img = go.GetComponent<Image>();
-            img.color = new Color(0.15f, 0.15f, 0.2f, 0.95f);
+        private void SetUiVisible(bool isVisible)
+        {
+            if (_uiPanel == null)
+            {
+                return;
+            }
 
-            var btn = go.GetComponent<Button>();
-            btn.onClick.AddListener(onClick);
-
-            var le = go.AddComponent<LayoutElement>();
-            le.minHeight = 48f;
-            le.preferredHeight = 48f;
-
-            var textGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
-            textGo.transform.SetParent(go.transform, false);
-            var trt = textGo.GetComponent<RectTransform>();
-            trt.anchorMin = Vector2.zero;
-            trt.anchorMax = Vector2.one;
-            trt.offsetMin = new Vector2(8f, 4f);
-            trt.offsetMax = new Vector2(-8f, -4f);
-            var tx = textGo.GetComponent<Text>();
-            tx.font = _font;
-            tx.fontSize = 22;
-            tx.alignment = TextAnchor.MiddleCenter;
-            tx.color = Color.white;
-            tx.text = label;
+            _uiPanel.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }

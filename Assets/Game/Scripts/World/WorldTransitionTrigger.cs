@@ -138,6 +138,36 @@ namespace DVBARPG.Game.World
             }
         }
 
+        public float ActivationRadius => activationRadius;
+
+        public void TryInteractByAutoMove()
+        {
+            if (_busy || Time.unscaledTime < _nextInteractAt)
+            {
+                return;
+            }
+
+            var player = NetworkPlayerReplicator.PlayerTransform;
+            if (player == null || Vector3.Distance(player.position, transform.position) > activationRadius)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetMapCode))
+            {
+                Debug.LogWarning("[WorldTransitionTrigger] targetMapCode is empty.", this);
+                return;
+            }
+
+            var root = GameRoot.Instance;
+            if (root == null)
+            {
+                return;
+            }
+
+            root.StartCoroutine(CoTravel());
+        }
+
         private IEnumerator CoTravel()
         {
             _busy = true;

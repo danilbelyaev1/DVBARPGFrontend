@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="../Styles/HudPanels.uss" />
+    <ui:VisualElement name="NpcMenuRoot" class="hud-root hud-root-left">
+        <ui:VisualElement name="NpcMenuPanel" class="hud-panel">
+            <ui:Label name="NpcMenuTitleLabel" text="NPC" class="hud-title" />
+            <ui:VisualElement name="NpcActionsList" class="hud-list" />
+            <ui:Button name="NpcCloseButton" text="Close" class="hud-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

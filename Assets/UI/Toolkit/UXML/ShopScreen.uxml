@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="../Styles/HudPanels.uss" />
+    <ui:VisualElement name="ShopRoot" class="hud-root hud-root-left">
+        <ui:VisualElement name="ShopPanel" class="hud-panel">
+            <ui:Label name="NpcTitleLabel" text="Shop" class="hud-title" />
+            <ui:ScrollView name="OffersList" class="hud-list" />
+            <ui:Button name="ShopCloseButton" text="Close" class="hud-button" />
+            <ui:Label name="ShopStatusLabel" text="..." class="hud-status" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

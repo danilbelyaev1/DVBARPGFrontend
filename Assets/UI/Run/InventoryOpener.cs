@@ -11,6 +11,9 @@ namespace DVBARPG.UI.Run
     /// </summary>
     public sealed class InventoryOpener : MonoBehaviour
     {
+        [Header("UI Toolkit Inventory")]
+        [SerializeField] private InventoryScreen inventoryScreen;
+
         [Header("Кнопка")]
         [Tooltip("Кнопка открытия/закрытия инвентаря (опционально).")]
         [SerializeField] private Button openButton;
@@ -25,6 +28,10 @@ namespace DVBARPG.UI.Run
         private void Awake()
         {
             if (openButton != null) openButton.onClick.AddListener(ToggleInventory);
+            if (inventoryScreen == null)
+            {
+                inventoryScreen = FindFirstObjectByType<InventoryScreen>(FindObjectsInactive.Include);
+            }
             if (hudInventoryPanel != null)
             {
                 if (inventoryModalLayer == null)
@@ -49,6 +56,12 @@ namespace DVBARPG.UI.Run
 
         private void ToggleInventory()
         {
+            if (inventoryScreen != null)
+            {
+                inventoryScreen.ToggleVisibility();
+                return;
+            }
+
             if (hudInventoryPanel != null)
             {
                 if (inventoryModalLayer != null)

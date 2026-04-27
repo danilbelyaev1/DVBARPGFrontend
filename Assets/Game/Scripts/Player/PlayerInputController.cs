@@ -2,6 +2,7 @@ using DVBARPG.Core;
 using DVBARPG.Core.Services;
 using DVBARPG.Net.Commands;
 using DVBARPG.UI.Inventory;
+using System;
 using UnityEngine;
 using DVBARPG.Tools;
 #if ENABLE_INPUT_SYSTEM
@@ -33,6 +34,17 @@ namespace DVBARPG.Game.Player
         private ISessionService _session;
         private Transform _self;
         private bool _wasMoving;
+        private bool _autoMoveActive;
+        private Vector3 _autoMoveTarget;
+        private float _autoMoveStopDistance = 0.25f;
+        private Action _autoMoveOnArrived;
+        private bool _mouseWasPressed;
+        private float _mousePressedAt = -1f;
+        private const float MouseHoldOverrideSeconds = 0.18f;
+        private Vector3 _lastAutoMovePosition;
+        private float _stuckTimer;
+        private const float AutoMoveMinProgress = 0.03f;
+        private const float AutoMoveStuckSeconds = 0.4f;
 
         private void Awake()
         {
@@ -51,7 +63,30 @@ namespace DVBARPG.Game.Player
             if (_session == null) return;
             if (!CanMove()) return;
 
-            var dir = ReadMoveDirection();
+            var manualDir = ReadMoveDirection();
+            TrackMouseHoldState();
+
+            Vector3 dir;
+            if (_autoMoveActive)
+            {
+                var allowManualOverride =
+                    manualDir.sqrMagnitude > 0.0001f
+                    && (inputMode != InputMode.MouseFollow || GetMouseHoldDuration() >= MouseHoldOverrideSeconds);
+                if (allowManualOverride)
+                {
+                    ClearAutoMoveTarget();
+                    dir = manualDir;
+                }
+                else
+                {
+                    dir = ReadAutoMoveDirection();
+                }
+            }
+            else
+            {
+                dir = manualDir;
+            }
+
             if (dir.sqrMagnitude <= 0.0001f)
             {
                 if (_wasMoving)
@@ -199,6 +234,106 @@ namespace DVBARPG.Game.Player
             if (joystick == null) return Vector3.zero;
             var dir = joystick.Direction;
             return new Vector3(dir.x, 0f, dir.y);
+        }
+
+        private Vector3 ReadAutoMoveDirection()
+        {
+            var toTarget = _autoMoveTarget - _self.position;
+            toTarget.y = 0f;
+            var stopDistance = Mathf.Max(0.05f, _autoMoveStopDistance);
+            if (toTarget.sqrMagnitude <= stopDistance * stopDistance)
+            {
+                var callback = _autoMoveOnArrived;
+                ClearAutoMoveTarget();
+                callback?.Invoke();
+                return Vector3.zero;
+            }
+
+            UpdateAutoMoveStuckState();
+            if (_stuckTimer >= AutoMoveStuckSeconds)
+            {
+                ClearAutoMoveTarget();
+                return Vector3.zero;
+            }
+
+            return toTarget.normalized;
+        }
+
+        public void SetAutoMoveTarget(Vector3 worldTarget, float stopDistance, Action onArrived = null)
+        {
+            _autoMoveTarget = worldTarget;
+            _autoMoveTarget.y = _self.position.y;
+            _autoMoveStopDistance = Mathf.Max(0.05f, stopDistance);
+            _autoMoveOnArrived = onArrived;
+            _autoMoveActive = true;
+            _lastAutoMovePosition = _self.position;
+            _stuckTimer = 0f;
+        }
+
+        public void ClearAutoMoveTarget()
+        {
+            _autoMoveActive = false;
+            _autoMoveOnArrived = null;
+            _stuckTimer = 0f;
+        }
+
+        private void TrackMouseHoldState()
+        {
+            if (inputMode != InputMode.MouseFollow)
+            {
+                _mouseWasPressed = false;
+                _mousePressedAt = -1f;
+                return;
+            }
+
+            var pressed = IsPrimaryPointerPressed();
+            if (pressed && !_mouseWasPressed)
+            {
+                _mousePressedAt = Time.unscaledTime;
+            }
+            else if (!pressed)
+            {
+                _mousePressedAt = -1f;
+            }
+
+            _mouseWasPressed = pressed;
+        }
+
+        private float GetMouseHoldDuration()
+        {
+            if (_mousePressedAt < 0f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(0f, Time.unscaledTime - _mousePressedAt);
+        }
+
+        private static bool IsPrimaryPointerPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            var mouse = Mouse.current;
+            return mouse != null && mouse.leftButton.isPressed;
+#elif ENABLE_LEGACY_INPUT_MANAGER
+            return Input.GetMouseButton(0);
+#else
+            return false;
+#endif
+        }
+
+        private void UpdateAutoMoveStuckState()
+        {
+            var current = _self.position;
+            var moved = Vector3.Distance(current, _lastAutoMovePosition);
+            if (moved < AutoMoveMinProgress)
+            {
+                _stuckTimer += Time.deltaTime;
+            }
+            else
+            {
+                _stuckTimer = 0f;
+                _lastAutoMovePosition = current;
+            }
         }
     }
 }

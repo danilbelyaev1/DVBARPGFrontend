@@ -4,7 +4,8 @@ using DVBARPG.Core;
 using DVBARPG.Core.Services;
 using DVBARPG.UI.Common;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
 
 namespace DVBARPG.UI.Shop
 {
@@ -14,29 +15,64 @@ namespace DVBARPG.UI.Shop
 
         [Tooltip("Пусто = брать хаб текущего акта из SessionState (actN_hub).")]
         [SerializeField] private string mapId = "";
-        [SerializeField] private Transform offersRoot;
-        [SerializeField] private GameObject offerRowPrefab;
-        [SerializeField] private Text npcTitleText;
-        [SerializeField] private Text statusText;
         [SerializeField] private ErrorToast errorToast;
-        [SerializeField] private UiModalLayer modalLayer;
-        [SerializeField] private GameObject panelRoot;
-
-        private readonly List<GameObject> _rows = new List<GameObject>();
+        [Header("UI Toolkit")]
+        [SerializeField] private UIDocument uiDocument;
+        private ScrollView _uiOffersList;
+        private Label _uiNpcTitle;
+        private Label _uiStatus;
+        private VisualElement _uiPanel;
 
         private void Awake()
         {
-            if (modalLayer == null)
+            if (!TryInitUiToolkit())
             {
-                modalLayer = GetComponent<UiModalLayer>();
-            }
-
-            if (panelRoot == null)
-            {
-                panelRoot = gameObject;
+                Debug.LogError("[NpcShopScreen] UIDocument/UXML is required. Canvas fallback removed.", this);
+                enabled = false;
+                return;
             }
 
             HudWindowCoordinator.LeftWindowOpened += OnOtherLeftWindowOpened;
+        }
+
+        private bool TryInitUiToolkit()
+        {
+            if (uiDocument == null)
+            {
+                uiDocument = GetComponent<UIDocument>();
+            }
+
+            if (uiDocument == null)
+            {
+                return false;
+            }
+
+            var root = uiDocument.rootVisualElement;
+            if (root == null)
+            {
+                return false;
+            }
+
+            _uiPanel = root.Q<VisualElement>("ShopRoot");
+            var uiContentPanel = root.Q<VisualElement>("ShopPanel");
+            _uiOffersList = root.Q<ScrollView>("OffersList");
+            _uiNpcTitle = root.Q<Label>("NpcTitleLabel");
+            _uiStatus = root.Q<Label>("ShopStatusLabel");
+            var closeButton = root.Q<UnityEngine.UIElements.Button>("ShopCloseButton");
+            if (closeButton != null)
+            {
+                closeButton.clicked += HideShop;
+            }
+            if (_uiPanel != null)
+            {
+                _uiPanel.pickingMode = PickingMode.Ignore;
+            }
+            if (uiContentPanel != null)
+            {
+                uiContentPanel.pickingMode = PickingMode.Position;
+            }
+            SetUiPanelVisible(false);
+            return _uiPanel != null && _uiOffersList != null && _uiNpcTitle != null && _uiStatus != null;
         }
 
         private void OnDestroy()
@@ -56,14 +92,7 @@ namespace DVBARPG.UI.Shop
             var normalizedNpcCode = npcCode.Trim();
             SetStatus("Loading shop...");
             HudWindowCoordinator.NotifyLeftWindowOpened(LeftWindowId);
-            if (modalLayer != null)
-            {
-                modalLayer.Show();
-            }
-            else if (panelRoot != null)
-            {
-                panelRoot.SetActive(true);
-            }
+            SetUiPanelVisible(true);
 
             if (gameObject.activeInHierarchy)
             {
@@ -85,16 +114,7 @@ namespace DVBARPG.UI.Shop
 
         public void HideShop()
         {
-            if (modalLayer != null)
-            {
-                modalLayer.Hide();
-                return;
-            }
-
-            if (panelRoot != null)
-            {
-                panelRoot.SetActive(false);
-            }
+            SetUiPanelVisible(false);
         }
 
         private void OnOtherLeftWindowOpened(string sourceId)
@@ -104,11 +124,19 @@ namespace DVBARPG.UI.Shop
                 return;
             }
 
-            var isVisible = modalLayer != null ? modalLayer.IsVisible : (panelRoot != null && panelRoot.activeSelf);
+            var isVisible = _uiPanel != null && _uiPanel.style.display != DisplayStyle.None;
             if (isVisible)
             {
                 HideShop();
             }
+        }
+
+        private void Update()
+        {
+            if (Keyboard.current == null) return;
+            if (!Keyboard.current.escapeKey.wasPressedThisFrame) return;
+            if (_uiPanel == null || _uiPanel.style.display == DisplayStyle.None) return;
+            HideShop();
         }
 
         private IEnumerator CoOpenShop(string npcCode)
@@ -152,10 +180,7 @@ namespace DVBARPG.UI.Shop
             }
 
             shopState.Offers = snapshot.Offers;
-            if (npcTitleText != null)
-            {
-                npcTitleText.text = snapshot.Npc != null ? snapshot.Npc.Name : npcCode;
-            }
+            _uiNpcTitle.text = snapshot.Npc != null ? snapshot.Npc.Name : npcCode;
 
             BuildOffers(snapshot.Offers);
             SetStatus("Shop loaded.");
@@ -228,25 +253,29 @@ namespace DVBARPG.UI.Shop
 
         private void BuildOffers(ShopOfferInfo[] offers)
         {
-            foreach (var row in _rows) if (row != null) Destroy(row);
-            _rows.Clear();
-            if (offersRoot == null || offerRowPrefab == null || offers == null) return;
+            if (_uiOffersList == null)
+            {
+                return;
+            }
+
+            _uiOffersList.Clear();
+            if (offers == null)
+            {
+                return;
+            }
 
             foreach (var offer in offers)
             {
-                var row = Instantiate(offerRowPrefab, offersRoot);
-                _rows.Add(row);
-                var button = row.GetComponentInChildren<Button>();
-                var label = row.GetComponentInChildren<Text>();
-                if (label != null)
-                {
-                    label.text = $"{offer.ItemName} ({offer.Price} {offer.CurrencyCode})";
-                }
-                if (button != null)
-                {
-                    var selected = offer;
-                    button.onClick.AddListener(() => StartCoroutine(Buy(selected)));
-                }
+                var row = new VisualElement();
+                row.AddToClassList("hud-row");
+                var label = new Label($"{offer.ItemName} ({offer.Price} {offer.CurrencyCode})");
+                label.style.flexGrow = 1;
+                var selected = offer;
+                var buyButton = new UnityEngine.UIElements.Button(() => StartCoroutine(Buy(selected))) { text = "Buy" };
+                buyButton.AddToClassList("hud-button");
+                row.Add(label);
+                row.Add(buyButton);
+                _uiOffersList.Add(row);
             }
         }
 
@@ -286,7 +315,17 @@ namespace DVBARPG.UI.Shop
 
         private void SetStatus(string message)
         {
-            if (statusText != null) statusText.text = message;
+            _uiStatus.text = message;
+        }
+
+        private void SetUiPanelVisible(bool isVisible)
+        {
+            if (_uiPanel == null)
+            {
+                return;
+            }
+
+            _uiPanel.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
         }
     }
 }
