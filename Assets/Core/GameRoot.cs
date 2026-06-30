@@ -34,6 +34,7 @@ namespace DVBARPG.Core
 
             Services = new ServiceRegistry();
             RegisterCoreServices();
+            Debug.Log("[GameRoot] Core services registered (test log).");
         }
 
         private void Start()
